@@ -463,6 +463,7 @@ model CallEvent {
   externalCallId  String?
   durationSeconds Int?
   salesCode       String?
+  payload         Json?
   dismissedAt     DateTime?
   createdAt       DateTime     @default(now())
 
