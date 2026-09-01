@@ -1,0 +1,491 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Better Auth core ───────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  members       Member[]
+  invitations   Invitation[] @relation("Inviter")
+  profiles      UserProfile[]
+  assignedLeads Lead[]    @relation("AssignedLeads")
+  orders        Order[]   @relation("OrderSeller")
+  logs          Log[]
+
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id @default(cuid())
+  expiresAt            DateTime
+  token                String   @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganizationId String?
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  issuer                String
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([issuer, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ─── Better Auth organization plugin ────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  members         Member[]
+  invitations     Invitation[]
+  profiles        UserProfile[]
+  sources         Source[]
+  offers          Offer[]
+  appStatuses     AppStatus[]
+  customers       Customer[]
+  leads           Lead[]
+  orders          Order[]
+  apiKeys         ApiKey[]
+  logs            Log[]
+  callEvents      CallEvent[]
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String       @default("member")
+  status         String       @default("pending")
+  expiresAt      DateTime
+  inviterId      String
+  inviter        User         @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("invitation")
+}
+
+// ─── Tenant user profile (sales code etc.) ────────────────────────────────────
+
+model UserProfile {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salesCode      String?
+  contactPhone   String?
+  blocked        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId])
+  @@unique([organizationId, salesCode])
+  @@map("user_profile")
+}
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  keyHash        String       @unique
+  keyPrefix      String
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime?
+
+  @@index([organizationId])
+  @@map("api_key")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum ProductLine {
+  prepaid_mobile
+  postpaid_mobile
+  fixed_telephony
+}
+
+enum ApplicationType {
+  new_number
+  portability
+}
+
+enum DocumentType {
+  id_card
+  passport
+  residence_permit
+  other
+}
+
+enum BillingNotificationType {
+  email
+  sms
+}
+
+enum SourceChannel {
+  manual
+  facebook
+  file_import
+  website
+  store
+  other
+}
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  converted
+  lost
+}
+
+enum LogActionType {
+  created
+  updated
+  status_changed
+  converted
+  comment_added
+}
+
+enum CallKind {
+  incoming
+  outgoing_ended
+}
+
+// ─── Catalog ──────────────────────────────────────────────────────────────────
+
+model Source {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  channel        SourceChannel @default(manual)
+  enabled        Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  leads          Lead[]
+  orders         Order[]
+  customers      Customer[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("source")
+}
+
+model Offer {
+  id                   String      @id @default(cuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  code                 String
+  name                 String
+  productLine          ProductLine
+  catalogMonthlyAmount Decimal?    @db.Decimal(10, 2)
+  validFrom            DateTime?
+  validTo              DateTime?
+  enabled              Boolean     @default(true)
+  prepaidGroup         String?
+  metadata             Json?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  applications         Application[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("offer")
+}
+
+model AppStatus {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String       @default("#6b7280")
+  sortOrder      Int          @default(0)
+  isDefault      Boolean      @default(false)
+  isTerminal     Boolean      @default(false)
+  isSuccess      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  applications   Application[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("app_status")
+}
+
+// ─── CRM entities ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id                         String       @id @default(cuid())
+  organizationId             String
+  organization               Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firstName                  String
+  lastName                   String
+  fatherName                 String?
+  vatNumber                  String?
+  documentType               DocumentType @default(id_card)
+  documentNumber             String?
+  documentIssuer             String?
+  contactPhone               String
+  homeStreet                 String?
+  homeNumber                 String?
+  homeCity                   String?
+  homePostalCode             String?
+  homeRegion                 String?
+  birthCountry               String?
+  birthDate                  DateTime?
+  notes                      String?
+  consentMarketing           Boolean?
+  sourceId                   String?
+  source                     Source?      @relation(fields: [sourceId], references: [id])
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
+  orders                     Order[]
+  leads                      Lead[]
+  callEvents                 CallEvent[]
+
+  @@unique([organizationId, contactPhone])
+  @@unique([organizationId, vatNumber])
+  @@index([organizationId])
+  @@map("customer")
+}
+
+model ShippingAddress {
+  id         String   @id @default(cuid())
+  street     String
+  number     String?
+  city       String
+  postalCode String
+  region     String?
+  floor      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  order      Order?
+
+  @@map("shipping_address")
+}
+
+model InstallationAddress {
+  id         String      @id @default(cuid())
+  street     String
+  number     String?
+  city       String
+  postalCode String
+  region     String?
+  floor      String?
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  application Application?
+
+  @@map("installation_address")
+}
+
+model Order {
+  id                String          @id @default(cuid())
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderRef          String
+  customerId        String
+  customer          Customer        @relation(fields: [customerId], references: [id])
+  shippingAddressId String          @unique
+  shippingAddress   ShippingAddress @relation(fields: [shippingAddressId], references: [id])
+  sourceId          String?
+  source            Source?         @relation(fields: [sourceId], references: [id])
+  sellerId          String?
+  seller            User?           @relation("OrderSeller", fields: [sellerId], references: [id])
+  salesCode         String?
+  notes             String?
+  orderDate         DateTime        @default(now())
+  leadId            String?         @unique
+  lead              Lead?           @relation(fields: [leadId], references: [id])
+  archived          Boolean         @default(false)
+  archivedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  applications      Application[]
+
+  @@unique([organizationId, orderRef])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([salesCode])
+  @@map("order")
+}
+
+model Application {
+  id                      String                 @id @default(cuid())
+  organizationId          String
+  orderId                 String
+  order                   Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productLine             ProductLine
+  applicationType         ApplicationType?
+  portingNumber           String?
+  previousProvider        String?
+  notes                   String?
+  statusId                String
+  status                  AppStatus              @relation(fields: [statusId], references: [id])
+  cancellationReason      String?
+  pendingReason           String?
+  msisdnSn                String?
+  msisdn                  String?
+  isGift                  Boolean                @default(false)
+  agreedMonthlyAmount     Decimal?               @db.Decimal(10, 2)
+  offerId                 String?
+  offer                   Offer?                 @relation(fields: [offerId], references: [id])
+  offerSnapshot           Json?
+  loopNumber              String?
+  billingNotificationType BillingNotificationType?
+  installationAddressId   String?                @unique
+  installationAddress     InstallationAddress?   @relation(fields: [installationAddressId], references: [id])
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  logs                    Log[]
+
+  @@index([organizationId])
+  @@index([orderId])
+  @@index([statusId])
+  @@map("application")
+}
+
+model Lead {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firstName      String?
+  lastName       String?
+  phone          String
+  email          String?
+  notes          String?
+  sourceId       String
+  source         Source       @relation(fields: [sourceId], references: [id])
+  status         LeadStatus   @default(new)
+  assignedUserId String?
+  assignedUser   User?        @relation("AssignedLeads", fields: [assignedUserId], references: [id])
+  externalId     String?
+  payload        Json?
+  customerId     String?
+  customer       Customer?    @relation(fields: [customerId], references: [id])
+  order          Order?
+  callEvents     CallEvent[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, sourceId, externalId])
+  @@index([organizationId])
+  @@index([phone])
+  @@map("lead")
+}
+
+model CallEvent {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind            CallKind
+  phone           String
+  normalizedPhone String
+  customerId      String?
+  customer        Customer?    @relation(fields: [customerId], references: [id])
+  leadId          String?
+  lead            Lead?        @relation(fields: [leadId], references: [id])
+  externalCallId  String?
+  durationSeconds Int?
+  salesCode       String?
+  dismissedAt     DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@index([organizationId, kind, dismissedAt])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, externalCallId])
+  @@map("call_event")
+}
+
+model Log {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicationId  String?
+  application    Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  action         LogActionType
+  message        String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId])
+  @@index([applicationId])
+  @@map("log")
+}
