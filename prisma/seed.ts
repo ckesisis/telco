@@ -104,6 +104,7 @@ async function main() {
         name: "Default Ingest",
         keyPrefix: rawKey.slice(0, 8),
         keyHash,
+        secret: rawKey,
       },
     });
     console.log(`API Key (save this): ${rawKey}`);

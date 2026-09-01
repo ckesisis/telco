@@ -161,6 +161,7 @@ model ApiKey {
   name           String
   keyHash        String       @unique
   keyPrefix      String
+  secret         String?
   enabled        Boolean      @default(true)
   createdAt      DateTime     @default(now())
   lastUsedAt     DateTime?

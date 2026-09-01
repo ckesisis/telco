@@ -1,28 +1,28 @@
 import { requireAdminContext } from "@/lib/tenancy";
 import { db } from "@/lib/db";
+import { listApiKeys } from "@/lib/services/api-key.service";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OrganizationApiKeys } from "./organization-api-keys";
 
 export default async function OrganizationSettingsPage() {
   const ctx = await requireAdminContext();
-  const org = await db.organization.findUnique({
-    where: { id: ctx.organizationId },
-    include: {
-      _count: {
-        select: {
-          members: true,
-          customers: true,
-          orders: true,
-          leads: true,
+  const [org, apiKeys] = await Promise.all([
+    db.organization.findUnique({
+      where: { id: ctx.organizationId },
+      include: {
+        _count: {
+          select: {
+            members: true,
+            customers: true,
+            orders: true,
+            leads: true,
+          },
         },
       },
-    },
-  });
-
-  const apiKeys = await db.apiKey.findMany({
-    where: { organizationId: ctx.organizationId },
-    select: { id: true, name: true, keyPrefix: true, enabled: true, lastUsedAt: true },
-  });
+    }),
+    listApiKeys(ctx.organizationId),
+  ]);
 
   return (
     <div>
@@ -39,30 +39,7 @@ export default async function OrganizationSettingsPage() {
             <p><span className="text-slate-500">Leads:</span> {org?._count.leads}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>API Keys (Ingest)</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {apiKeys.length === 0 ? (
-              <p className="text-slate-500">Δεν υπάρχουν API keys. Τρέξτε το seed script.</p>
-            ) : (
-              apiKeys.map((key) => (
-                <div key={key.id} className="rounded-lg border p-3">
-                  <p className="font-medium">{key.name}</p>
-                  <p className="text-slate-500">Prefix: {key.keyPrefix}...</p>
-                  <p className="text-slate-500">{key.enabled ? "Ενεργό" : "Ανενεργό"}</p>
-                </div>
-              ))
-            )}
-            <p className="text-xs text-slate-400">
-              Χρησιμοποιήστε το header <code>X-Api-Key</code> για τα ingest endpoints.
-            </p>
-            <div className="space-y-2 text-xs text-slate-500">
-              <p>POST /api/v1/ingest/leads</p>
-              <p>POST /api/v1/ingest/calls/incoming</p>
-              <p>POST /api/v1/ingest/calls/ended</p>
-            </div>
-          </CardContent>
-        </Card>
+        <OrganizationApiKeys keys={apiKeys} />
       </div>
     </div>
   );
