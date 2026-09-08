@@ -127,6 +127,23 @@ export async function listPendingCallEvents(ctx: ApiContext) {
   });
 }
 
+export async function listRecentCallEvents(organizationId: string, take = 50) {
+  return db.callEvent.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: "desc" },
+    take,
+    select: {
+      id: true,
+      kind: true,
+      phone: true,
+      payload: true,
+      durationSeconds: true,
+      externalCallId: true,
+      createdAt: true,
+    },
+  });
+}
+
 export async function dismissCallEvent(organizationId: string, id: string) {
   const event = await db.callEvent.findFirst({
     where: { id, organizationId },

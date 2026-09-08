@@ -1,13 +1,15 @@
 import { requireAdminContext } from "@/lib/tenancy";
 import { db } from "@/lib/db";
 import { listApiKeys } from "@/lib/services/api-key.service";
+import { listRecentCallEvents } from "@/lib/services/call.service";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrganizationApiKeys } from "./organization-api-keys";
+import { CallIngestLog } from "./call-ingest-log";
 
 export default async function OrganizationSettingsPage() {
   const ctx = await requireAdminContext();
-  const [org, apiKeys] = await Promise.all([
+  const [org, apiKeys, callEvents] = await Promise.all([
     db.organization.findUnique({
       where: { id: ctx.organizationId },
       include: {
@@ -22,6 +24,7 @@ export default async function OrganizationSettingsPage() {
       },
     }),
     listApiKeys(ctx.organizationId),
+    listRecentCallEvents(ctx.organizationId),
   ]);
 
   return (
@@ -40,6 +43,9 @@ export default async function OrganizationSettingsPage() {
           </CardContent>
         </Card>
         <OrganizationApiKeys keys={apiKeys} />
+      </div>
+      <div className="mt-6">
+        <CallIngestLog events={callEvents} />
       </div>
     </div>
   );
