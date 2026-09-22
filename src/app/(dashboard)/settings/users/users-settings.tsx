@@ -53,6 +53,9 @@ export function UsersSettings({
   const [selected, setSelected] = useState(members[0]?.userId ?? "");
   const selectedMember = members.find((m) => m.userId === selected);
   const [editForm, setEditForm] = useState({
+    name: selectedMember?.name ?? "",
+    email: selectedMember?.email ?? "",
+    password: "",
     role: selectedMember?.role ?? "member",
     salesCode: selectedMember?.salesCode ?? "",
     contactPhone: selectedMember?.contactPhone ?? "",
@@ -66,6 +69,9 @@ export function UsersSettings({
       members.find((m) => m.userId === selected) ?? members[0];
     setSelected(member.userId);
     setEditForm({
+      name: member.name,
+      email: member.email,
+      password: "",
       role: member.role,
       salesCode: member.salesCode,
       contactPhone: member.contactPhone,
@@ -76,6 +82,9 @@ export function UsersSettings({
     setSelected(userId);
     const member = members.find((x) => x.userId === userId);
     setEditForm({
+      name: member?.name ?? "",
+      email: member?.email ?? "",
+      password: "",
       role: member?.role ?? "member",
       salesCode: member?.salesCode ?? "",
       contactPhone: member?.contactPhone ?? "",
@@ -106,7 +115,8 @@ export function UsersSettings({
     router.refresh();
   }
 
-  async function handleSave() {
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
     if (!selected) return;
     setSaving(true);
     setEditError("");
@@ -195,12 +205,13 @@ export function UsersSettings({
               />
             </div>
             <div className="space-y-1">
-              <Label>Τηλέφωνο</Label>
+              <Label>Τηλέφωνο{createForm.role === "member" ? " *" : ""}</Label>
               <Input
                 value={createForm.contactPhone}
                 onChange={(e) =>
                   setCreateForm({ ...createForm, contactPhone: e.target.value })
                 }
+                required={createForm.role === "member"}
               />
             </div>
             {createError && <p className="text-sm text-red-600">{createError}</p>}
@@ -219,7 +230,7 @@ export function UsersSettings({
           {members.length === 0 ? (
             <p className="text-sm text-slate-500">Δεν υπάρχουν χρήστες.</p>
           ) : (
-            <>
+            <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1">
                 <Label>Χρήστης</Label>
                 <Select value={selected} onValueChange={selectMember}>
@@ -234,6 +245,34 @@ export function UsersSettings({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Όνομα *</Label>
+                <Input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Email *</Label>
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Νέος κωδικός</Label>
+                <Input
+                  type="password"
+                  value={editForm.password}
+                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                  minLength={8}
+                  placeholder="Κενό για να μείνει ο ίδιος"
+                />
               </div>
 
               <div className="space-y-1">
@@ -279,17 +318,18 @@ export function UsersSettings({
                 />
               </div>
               <div className="space-y-1">
-                <Label>Τηλέφωνο</Label>
+                <Label>Τηλέφωνο{editForm.role === "member" ? " *" : ""}</Label>
                 <Input
                   value={editForm.contactPhone}
                   onChange={(e) => setEditForm({ ...editForm, contactPhone: e.target.value })}
+                  required={editForm.role === "member"}
                 />
               </div>
               {editError && <p className="text-sm text-red-600">{editError}</p>}
-              <Button onClick={handleSave} disabled={saving}>
+              <Button type="submit" disabled={saving}>
                 {saving ? "Αποθήκευση..." : "Αποθήκευση"}
               </Button>
-            </>
+            </form>
           )}
         </CardContent>
       </Card>

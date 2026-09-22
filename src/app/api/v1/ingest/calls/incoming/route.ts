@@ -9,6 +9,7 @@ export const POST = withApiKey(async (req, ctx) => {
       phone: String(body.phone ?? ""),
       externalCallId: body.callId ?? body.externalCallId ?? null,
       salesCode: body.salesCode ?? null,
+      msisdn: body.msisdn ?? null,
       payload: body,
     });
     return jsonOk(event, 201);

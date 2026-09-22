@@ -47,6 +47,14 @@ export default function LeadImportForm({ sources }: { sources: Source[] }) {
       email: row.email ?? row.Email,
       notes: row.notes,
       externalId: row.externalId ?? row.id,
+      campaignName: row.campaignName ?? row.campaign_name,
+      adsetName: row.adsetName ?? row.adset_name,
+      adName: row.adName ?? row.ad_name,
+      utmSource: row.utmSource ?? row.utm_source,
+      utmMedium: row.utmMedium ?? row.utm_medium,
+      utmCampaign: row.utmCampaign ?? row.utm_campaign,
+      utmContent: row.utmContent ?? row.utm_content,
+      utmTerm: row.utmTerm ?? row.utm_term,
     }));
 
     const res = await fetch("/api/v1/leads", {
@@ -66,7 +74,7 @@ export default function LeadImportForm({ sources }: { sources: Source[] }) {
     <div>
       <PageHeader
         title="Εισαγωγή Leads"
-        description="Ανεβάστε CSV ή XLSX με στήλες phone, firstName, lastName, email"
+        description="Στήλες: phone, firstName, lastName, email. Για Facebook / META Ads: campaign_name, adset_name, ad_name, utm_source, utm_medium, utm_campaign, utm_content, utm_term"
       />
       <Card className="max-w-xl">
         <CardContent className="space-y-4 pt-6">

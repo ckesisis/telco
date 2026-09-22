@@ -89,7 +89,7 @@ export function CallPopup() {
             ) : (
               <PhoneOff className="h-5 w-5 text-slate-600" />
             )}
-            {isIncoming ? "Εισερχόμενη κλήση" : "Η εξερχόμενη κλήση ολοκληρώθηκε"}
+            {isIncoming ? "Χτυπάει εισερχόμενη κλήση" : "Η εξερχόμενη κλήση ολοκληρώθηκε"}
           </DialogTitle>
           <DialogDescription>
             {name ? `${name} · ${event?.phone}` : event?.phone}
@@ -99,6 +99,9 @@ export function CallPopup() {
         {event && (
           <div className="space-y-4">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+              {isIncoming && (
+                <p className="font-medium text-emerald-700">Η κλήση χτυπάει τώρα.</p>
+              )}
               <p>
                 <span className="text-slate-500">Αριθμός:</span> {event.phone}
               </p>

@@ -28,11 +28,12 @@ export default async function LeadsPage() {
         }
       />
       <DataTable
-        headers={["Τηλέφωνο", "Όνομα", "Πηγή", "Κατάσταση", "Ημ/νία", ""]}
+        headers={["Τηλέφωνο", "Όνομα", "Πηγή", "Campaign", "Κατάσταση", "Ημ/νία", ""]}
         rows={leads.map((lead) => [
           lead.phone,
           [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—",
           lead.source.name,
+          lead.campaignName ?? "—",
           <Badge key={lead.id}>{LEAD_STATUS_LABELS[lead.status]}</Badge>,
           formatDateTime(lead.createdAt),
           <Link key={`link-${lead.id}`} href={`/leads/${lead.id}`} className="text-sm text-blue-600 hover:underline">

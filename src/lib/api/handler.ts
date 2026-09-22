@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageSettings, isAdminRole } from "@/config/roles";
+import { canManageSettings } from "@/config/roles";
+import { resolveAccess } from "@/lib/tenancy";
 import { createHash, timingSafeEqual } from "crypto";
 
 export type ApiContext = {
@@ -18,44 +19,42 @@ async function resolveApiContext(
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) return null;
 
-  const activeOrgId =
-    session.session.activeOrganizationId ??
-    (
-      await db.member.findFirst({
-        where: { userId: session.user.id },
-        orderBy: { createdAt: "asc" },
-      })
-    )?.organizationId;
-
-  if (!activeOrgId) return null;
-
-  const [member, profile] = await Promise.all([
-    db.member.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: activeOrgId,
-          userId: session.user.id,
-        },
-      },
-    }),
-    db.userProfile.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: activeOrgId,
-          userId: session.user.id,
-        },
-      },
-    }),
-  ]);
-
-  if (!member) return null;
+  const access = await resolveAccess({
+    userId: session.user.id,
+    userName: session.user.name,
+    userEmail: session.user.email,
+    activeOrganizationId: session.session.activeOrganizationId ?? null,
+  });
+  if (access.kind !== "tenant") return null;
 
   return {
-    userId: session.user.id,
-    organizationId: activeOrgId,
-    role: member.role,
-    salesCode: profile?.salesCode ?? null,
-    isAdmin: isAdminRole(member.role),
+    userId: access.ctx.userId,
+    organizationId: access.ctx.organizationId,
+    role: access.ctx.role,
+    salesCode: access.ctx.salesCode,
+    isAdmin: access.ctx.isAdmin,
+  };
+}
+
+export function withSuperAdmin(
+  handler: (
+    request: NextRequest,
+    session: NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>
+  ) => Promise<NextResponse>
+) {
+  return async (request: NextRequest) => {
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { isSuperAdmin: true },
+    });
+    if (!user?.isSuperAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    return handler(request, session);
   };
 }
 

@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { isMetaChannel } from "@/config/source-channels";
 
-type Source = { id: string; name: string };
+type Source = { id: string; name: string; channel: string };
 
 export default function NewLeadPage({
   sources,
@@ -35,7 +36,20 @@ export default function NewLeadPage({
     email: "",
     notes: "",
     sourceId: sources[0]?.id ?? "",
+    campaignName: "",
+    adsetName: "",
+    adName: "",
+    utmSource: "",
+    utmMedium: "",
+    utmCampaign: "",
+    utmContent: "",
+    utmTerm: "",
   });
+
+  const selectedSource = sources.find((source) => source.id === form.sourceId);
+  const showAttribution = selectedSource
+    ? isMetaChannel(selectedSource.channel)
+    : false;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -115,6 +129,53 @@ export default function NewLeadPage({
                 </SelectContent>
               </Select>
             </div>
+            {showAttribution && (
+              <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+                <p className="text-sm font-medium text-slate-900">
+                  Facebook / META Ads
+                </p>
+                <div className="space-y-2">
+                  <Label>Campaign Name</Label>
+                  <Input
+                    value={form.campaignName}
+                    onChange={(e) => setForm({ ...form, campaignName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Adset Name</Label>
+                  <Input
+                    value={form.adsetName}
+                    onChange={(e) => setForm({ ...form, adsetName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ad Name</Label>
+                  <Input
+                    value={form.adName}
+                    onChange={(e) => setForm({ ...form, adName: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {(
+                    [
+                      ["utmSource", "utm_source"],
+                      ["utmMedium", "utm_medium"],
+                      ["utmCampaign", "utm_campaign"],
+                      ["utmContent", "utm_content"],
+                      ["utmTerm", "utm_term"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div key={key} className="space-y-2">
+                      <Label>{label}</Label>
+                      <Input
+                        value={form[key]}
+                        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Σημειώσεις</Label>
               <Textarea

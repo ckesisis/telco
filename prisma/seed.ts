@@ -5,7 +5,12 @@ import { hashPassword } from "better-auth/crypto";
 import { db } from "@/lib/db";
 import { seedOrganizationCatalog } from "@/lib/services/org.service";
 
-async function ensureCredentialUser(email: string, password: string) {
+async function ensureCredentialUser(
+  email: string,
+  password: string,
+  name: string,
+  isSuperAdmin = false
+) {
   const issuer = createLocalAccountIssuer("credential");
   const passwordHash = await hashPassword(password);
 
@@ -13,12 +18,18 @@ async function ensureCredentialUser(email: string, password: string) {
   if (!user) {
     user = await db.user.create({
       data: {
-        name: "Demo Owner",
+        name,
         email,
         emailVerified: true,
+        isSuperAdmin,
       },
     });
     console.log(`Created user: ${email}`);
+  } else if (user.isSuperAdmin !== isSuperAdmin) {
+    user = await db.user.update({
+      where: { id: user.id },
+      data: { isSuperAdmin },
+    });
   }
 
   await db.account.deleteMany({
@@ -43,7 +54,7 @@ async function main() {
   const orgName = process.env.SEED_ORG_NAME ?? "Demo Telecom";
   const orgSlug = process.env.SEED_ORG_SLUG ?? "demo-telecom";
 
-  const user = await ensureCredentialUser(email, password);
+  const user = await ensureCredentialUser(email, password, "Demo Owner");
 
   let org = await db.organization.findUnique({ where: { slug: orgSlug } });
   if (!org) {
@@ -144,8 +155,20 @@ async function main() {
     console.log("Seeded demo offers");
   }
 
+  const superAdminEmail =
+    process.env.SEED_SUPERADMIN_EMAIL ?? "superadmin@demo.telco";
+  const superAdminPassword =
+    process.env.SEED_SUPERADMIN_PASSWORD ?? "password123";
+  await ensureCredentialUser(
+    superAdminEmail,
+    superAdminPassword,
+    "Super Admin",
+    true
+  );
+
   console.log("\nSeed complete!");
   console.log(`Login: ${email} / ${password}`);
+  console.log(`Super admin: ${superAdminEmail} / ${superAdminPassword}`);
   console.log(`Organization: ${orgName}`);
 
   // Second org for tenant isolation proof

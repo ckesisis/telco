@@ -15,6 +15,7 @@ export default async function DashboardLayout({
         organizationName={ctx.organizationName}
         userName={ctx.userName}
         isAdmin={ctx.isAdmin}
+        isSuperAdmin={ctx.isSuperAdmin}
       />
       <main className="flex-1 overflow-y-auto p-6">{children}</main>
       <CallPopup />

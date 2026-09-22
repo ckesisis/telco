@@ -1,6 +1,12 @@
 import { db } from "@/lib/db";
 import type { ApiContext } from "@/lib/api/handler";
 import { findCustomerByPhone, createCustomer } from "@/lib/services/customer.service";
+import { pickDistributedAgent } from "@/lib/services/lead-distribution.service";
+import { isMetaChannel } from "@/config/source-channels";
+import {
+  EMPTY_ATTRIBUTION,
+  readLeadAttribution,
+} from "@/lib/lead-attribution";
 
 export async function listLeads(
   organizationId: string,
@@ -47,8 +53,34 @@ export async function getLead(organizationId: string, id: string) {
       assignedUser: true,
       customer: true,
       order: true,
+      comments: {
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "desc" as const },
+      },
     },
   });
+}
+
+async function resolveAssignee(
+  organizationId: string,
+  ctx: ApiContext,
+  sourceId: string,
+  explicit?: string | null
+) {
+  if (explicit) {
+    if (!ctx.isAdmin && explicit !== ctx.userId) {
+      throw new Error("Δεν μπορείτε να αναθέσετε το lead σε άλλον χρήστη");
+    }
+    return explicit;
+  }
+
+  if (ctx.isAdmin || ctx.userId === "api-key") {
+    const distributed = await pickDistributedAgent(organizationId, sourceId);
+    if (distributed) return distributed;
+  }
+
+  if (ctx.userId === "api-key") return null;
+  return ctx.userId;
 }
 
 export async function createLead(
@@ -77,6 +109,15 @@ export async function createLead(
     if (existing) return existing;
   }
 
+  const source = await db.source.findFirst({
+    where: { id: data.sourceId, organizationId },
+  });
+  if (!source) throw new Error("Η πηγή δεν βρέθηκε");
+
+  const attribution = isMetaChannel(source.channel)
+    ? readLeadAttribution(data as Record<string, unknown>)
+    : EMPTY_ATTRIBUTION;
+
   return db.lead.create({
     data: {
       organizationId,
@@ -86,7 +127,13 @@ export async function createLead(
       lastName: data.lastName,
       email: data.email,
       notes: data.notes,
-      assignedUserId: data.assignedUserId ?? ctx.userId,
+      ...attribution,
+      assignedUserId: await resolveAssignee(
+        organizationId,
+        ctx,
+        data.sourceId,
+        data.assignedUserId
+      ),
       externalId: data.externalId,
       payload: data.payload ? (data.payload as object) : undefined,
     },
@@ -94,14 +141,37 @@ export async function createLead(
   });
 }
 
+export function canAccessLead(
+  ctx: ApiContext,
+  lead: { assignedUserId: string | null }
+) {
+  if (ctx.isAdmin) return true;
+  return !lead.assignedUserId || lead.assignedUserId === ctx.userId;
+}
+
 export async function updateLead(
   organizationId: string,
+  ctx: ApiContext,
   id: string,
   data: Record<string, unknown>
 ) {
+  const lead = await getLead(organizationId, id);
+  if (!lead || !canAccessLead(ctx, lead)) {
+    throw new Error("Το lead δεν βρέθηκε");
+  }
+
+  const next: Record<string, unknown> = {};
+  if (typeof data.status === "string" && data.status !== "converted") {
+    next.status = data.status;
+  }
+  if (typeof data.notes === "string") next.notes = data.notes;
+  if (typeof data.firstName === "string") next.firstName = data.firstName;
+  if (typeof data.lastName === "string") next.lastName = data.lastName;
+  if (typeof data.email === "string") next.email = data.email;
+
   return db.lead.update({
     where: { id, organizationId },
-    data: data as never,
+    data: next as never,
     include: { source: true, customer: true },
   });
 }
@@ -153,6 +223,14 @@ export async function importLeads(
     email?: string;
     notes?: string;
     externalId?: string;
+    campaignName?: string;
+    adsetName?: string;
+    adName?: string;
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    utmContent?: string;
+    utmTerm?: string;
   }>
 ) {
   const results = { created: 0, skipped: 0, errors: [] as string[] };

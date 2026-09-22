@@ -1,7 +1,8 @@
 export function normalizePhone(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("0030") && digits.length > 10) return digits.slice(4);
-  if (digits.startsWith("30") && digits.length >= 12) return digits.slice(2);
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0030")) digits = digits.slice(4);
+  else if (digits.startsWith("30") && digits.length > 10) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = digits.slice(1);
   return digits;
 }
 
@@ -13,6 +14,8 @@ export function phoneLookupValues(phone: string) {
     values.add(last10);
     values.add(`0${last10}`);
     values.add(`30${last10}`);
+    values.add(`+30${last10}`);
+    values.add(`0030${last10}`);
   }
   return [...values].filter(Boolean);
 }

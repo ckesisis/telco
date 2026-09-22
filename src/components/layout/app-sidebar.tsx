@@ -8,9 +8,11 @@ import {
   ShoppingCart,
   Smartphone,
   UserPlus,
+  Phone,
   BarChart3,
   Settings,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
@@ -18,6 +20,7 @@ import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/leads/calls", label: "Προς κλήση", icon: Phone },
   { href: "/leads", label: "Leads", icon: UserPlus },
   { href: "/customers", label: "Πελάτες", icon: Users },
   { href: "/orders", label: "Παραγγελίες", icon: ShoppingCart },
@@ -30,6 +33,7 @@ const settingsItems = [
   { href: "/settings/sources", label: "Πηγές" },
   { href: "/settings/app-statuses", label: "Καταστάσεις" },
   { href: "/settings/users", label: "Χρήστες" },
+  { href: "/settings/lead-distribution", label: "Μοίρασμα leads" },
   { href: "/settings/organization", label: "Οργανισμός" },
 ];
 
@@ -37,10 +41,12 @@ export function AppSidebar({
   organizationName,
   userName,
   isAdmin,
+  isSuperAdmin,
 }: {
   organizationName: string;
   userName: string;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
 
@@ -67,7 +73,10 @@ export function AppSidebar({
           const active =
             item.href === "/dashboard"
               ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+              : item.href === "/leads"
+                ? pathname.startsWith("/leads") &&
+                  !pathname.startsWith("/leads/calls")
+                : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
@@ -84,6 +93,21 @@ export function AppSidebar({
             </Link>
           );
         })}
+
+        {isSuperAdmin && (
+          <Link
+            href="/admin"
+            className={cn(
+              "mt-4 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/admin")
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-100"
+            )}
+          >
+            <Shield className="h-4 w-4" />
+            Πλατφόρμα
+          </Link>
+        )}
 
         {isAdmin && (
           <div className="pt-4">

@@ -14,7 +14,7 @@ export const PATCH = withAuth(async (req, ctx) => {
   if (!id) return jsonError("id is required", 400);
 
   try {
-    await dismissCallEvent(ctx.organizationId, id);
+    await dismissCallEvent(ctx.organizationId, ctx, id);
     return jsonOk({ success: true });
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : "Error", 400);

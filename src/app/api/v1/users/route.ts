@@ -30,6 +30,9 @@ export const PATCH = withAdmin(async (req, ctx) => {
 
   try {
     await updateOrganizationUser(ctx.organizationId, userId, ctx.userId, {
+      name: body.name,
+      email: body.email,
+      password: body.password?.trim() ? body.password : undefined,
       role: body.role,
       salesCode: body.salesCode,
       contactPhone: body.contactPhone,

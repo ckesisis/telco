@@ -8,16 +8,10 @@ export async function getDashboardStats(
   to: Date
 ) {
   const dateFilter = { gte: from, lte: to };
-  const agentFilter = ctx.isAdmin
+  const leadFilter = ctx.isAdmin
     ? {}
     : {
-        OR: [
-          { sellerId: ctx.userId },
-          { salesCode: ctx.salesCode ?? undefined },
-          { assignedUserId: ctx.userId },
-          { sellerId: null },
-          { assignedUserId: null },
-        ],
+        OR: [{ assignedUserId: ctx.userId }, { assignedUserId: null }],
       };
 
   const [
@@ -32,14 +26,14 @@ export async function getDashboardStats(
     appsBySource,
   ] = await Promise.all([
     db.lead.count({
-      where: { organizationId, createdAt: dateFilter, ...agentFilter },
+      where: { organizationId, createdAt: dateFilter, ...leadFilter },
     }),
     db.lead.count({
       where: {
         organizationId,
         status: "converted",
         createdAt: dateFilter,
-        ...agentFilter,
+        ...leadFilter,
       },
     }),
     db.customer.count({
