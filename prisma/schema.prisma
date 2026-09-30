@@ -16,6 +16,7 @@ model User {
   emailVerified Boolean   @default(false)
   image         String?
   isSuperAdmin  Boolean   @default(false)
+  preferences   Json?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
@@ -99,6 +100,7 @@ model Organization {
   sources         Source[]
   offers          Offer[]
   appStatuses     AppStatus[]
+  leadStages      LeadStage[]
   customers       Customer[]
   leads           Lead[]
   orders          Order[]
@@ -213,14 +215,6 @@ enum SourceChannel {
   meta_ads
 }
 
-enum LeadStatus {
-  new
-  contacted
-  qualified
-  converted
-  lost
-}
-
 enum LogActionType {
   created
   updated
@@ -294,6 +288,25 @@ model AppStatus {
   @@unique([organizationId, name])
   @@index([organizationId])
   @@map("app_status")
+}
+
+model LeadStage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String       @default("#6b7280")
+  sortOrder      Int          @default(0)
+  isDefault      Boolean      @default(false)
+  isClosed       Boolean      @default(false)
+  isConverted    Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  leads          Lead[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("lead_stage")
 }
 
 // ─── CRM entities ─────────────────────────────────────────────────────────────
@@ -450,7 +463,8 @@ model Lead {
   utmTerm        String?
   sourceId       String
   source         Source       @relation(fields: [sourceId], references: [id])
-  status         LeadStatus   @default(new)
+  statusId       String
+  status         LeadStage    @relation(fields: [statusId], references: [id])
   assignedUserId String?
   assignedUser   User?        @relation("AssignedLeads", fields: [assignedUserId], references: [id])
   externalId     String?
@@ -467,6 +481,7 @@ model Lead {
   @@unique([organizationId, sourceId, externalId])
   @@index([organizationId])
   @@index([organizationId, assignedUserId, callbackAt])
+  @@index([statusId])
   @@index([phone])
   @@map("lead")
 }

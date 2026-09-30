@@ -6,6 +6,8 @@ import {
   getDefaultAppStatusId,
 } from "@/lib/services/org.service";
 import { canAgentSeeRecord } from "@/lib/services/catalog.service";
+import { getConvertedLeadStageId } from "@/lib/services/lead-status.service";
+import { PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
 
 type ApplicationInput = {
   productLine: string;
@@ -168,7 +170,10 @@ export async function createOrder(
     if (data.leadId) {
       await tx.lead.update({
         where: { id: data.leadId, organizationId },
-        data: { status: "converted", customerId: data.customerId },
+        data: {
+          statusId: await getConvertedLeadStageId(organizationId),
+          customerId: data.customerId,
+        },
       });
     }
 
@@ -185,8 +190,52 @@ export async function createOrder(
 export async function listApplications(
   organizationId: string,
   ctx: ApiContext,
-  filters?: { statusId?: string; productLine?: string }
+  filters?: { statusId?: string; productLine?: string; search?: string }
 ) {
+  const search = filters?.search?.trim();
+  const digits = search?.replace(/\D/g, "") ?? "";
+  const lines = search
+    ? PRODUCT_LINES.filter((line) =>
+        PRODUCT_LINE_LABELS[line].toLowerCase().includes(search.toLowerCase())
+      )
+    : [];
+  const access = ctx.isAdmin
+    ? []
+    : [
+        {
+          order: {
+            OR: [
+              { sellerId: ctx.userId },
+              { salesCode: ctx.salesCode ?? undefined },
+              { sellerId: null },
+            ],
+          },
+        },
+      ];
+  const match = search
+    ? [
+        {
+          OR: [
+            { offer: { name: { contains: search, mode: "insensitive" as const } } },
+            { status: { name: { contains: search, mode: "insensitive" as const } } },
+            { msisdn: { contains: search } },
+            { portingNumber: { contains: search } },
+            { order: { customer: { firstName: { contains: search, mode: "insensitive" as const } } } },
+            { order: { customer: { lastName: { contains: search, mode: "insensitive" as const } } } },
+            { order: { customer: { contactPhone: { contains: search } } } },
+            ...(digits.length >= 3 && digits !== search
+              ? [
+                  { msisdn: { contains: digits } },
+                  { portingNumber: { contains: digits } },
+                  { order: { customer: { contactPhone: { contains: digits } } } },
+                ]
+              : []),
+            ...(lines.length > 0 ? [{ productLine: { in: lines } }] : []),
+          ],
+        },
+      ]
+    : [];
+
   return db.application.findMany({
     where: {
       organizationId,
@@ -194,15 +243,7 @@ export async function listApplications(
       ...(filters?.productLine && {
         productLine: filters.productLine as never,
       }),
-      order: ctx.isAdmin
-        ? {}
-        : {
-            OR: [
-              { sellerId: ctx.userId },
-              { salesCode: ctx.salesCode ?? undefined },
-              { sellerId: null },
-            ],
-          },
+      ...(access.length + match.length > 0 ? { AND: [...access, ...match] } : {}),
     },
     include: {
       status: true,

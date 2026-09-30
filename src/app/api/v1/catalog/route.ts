@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { withAuth, withAdmin, jsonOk, jsonError } from "@/lib/api/handler";
 import {
   listSources,
@@ -14,6 +15,14 @@ import {
   getMemberProfiles,
   upsertUserProfile,
 } from "@/lib/services/catalog.service";
+import {
+  listLeadStages,
+  createLeadStage,
+  updateLeadStage,
+  reorderLeadStages,
+  deleteLeadStage,
+  LeadStageInUseError,
+} from "@/lib/services/lead-status.service";
 
 export const GET = withAuth(async (_req, ctx) => {
   const type = _req.nextUrl.searchParams.get("type");
@@ -24,6 +33,8 @@ export const GET = withAuth(async (_req, ctx) => {
       return jsonOk(await listOffers(ctx.organizationId));
     case "app-statuses":
       return jsonOk(await listAppStatuses(ctx.organizationId));
+    case "lead-stages":
+      return jsonOk(await listLeadStages(ctx.organizationId));
     case "members":
       return jsonOk(await getMemberProfiles(ctx.organizationId));
     default:
@@ -45,6 +56,11 @@ export const POST = withAdmin(async (req, ctx) => {
     case "reorder-statuses":
       await reorderAppStatuses(ctx.organizationId, data.orderedIds);
       return jsonOk({ success: true });
+    case "lead-stage":
+      return jsonOk(await createLeadStage(ctx.organizationId, data));
+    case "reorder-lead-stages":
+      await reorderLeadStages(ctx.organizationId, data.orderedIds);
+      return jsonOk({ success: true });
     case "user-profile":
       return jsonOk(
         await upsertUserProfile(ctx.organizationId, data.userId, data)
@@ -65,6 +81,12 @@ export const PATCH = withAdmin(async (req, ctx) => {
       return jsonOk(await updateOffer(ctx.organizationId, id, data));
     case "app-status":
       return jsonOk(await updateAppStatus(ctx.organizationId, id, data));
+    case "lead-stage":
+      try {
+        return jsonOk(await updateLeadStage(ctx.organizationId, id, data));
+      } catch (err) {
+        return jsonError(err instanceof Error ? err.message : "Σφάλμα", 400);
+      }
     default:
       return jsonError("Invalid type", 400);
   }
@@ -73,11 +95,20 @@ export const PATCH = withAdmin(async (req, ctx) => {
 export const DELETE = withAdmin(async (req, ctx) => {
   const id = req.nextUrl.searchParams.get("id");
   const type = req.nextUrl.searchParams.get("type");
-  if (!id || type !== "app-status") return jsonError("Invalid request", 400);
+  if (!id || (type !== "app-status" && type !== "lead-stage")) {
+    return jsonError("Invalid request", 400);
+  }
   try {
-    await deleteAppStatus(ctx.organizationId, id);
+    if (type === "lead-stage") {
+      await deleteLeadStage(ctx.organizationId, id, req.nextUrl.searchParams.get("moveToId"));
+    } else {
+      await deleteAppStatus(ctx.organizationId, id);
+    }
     return jsonOk({ success: true });
   } catch (err) {
+    if (err instanceof LeadStageInUseError) {
+      return NextResponse.json({ error: err.message, leadCount: err.leadCount }, { status: 409 });
+    }
     return jsonError(err instanceof Error ? err.message : "Error", 400);
   }
 });

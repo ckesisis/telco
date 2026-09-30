@@ -31,7 +31,7 @@ export async function getDashboardStats(
     db.lead.count({
       where: {
         organizationId,
-        status: "converted",
+        status: { isConverted: true },
         createdAt: dateFilter,
         ...leadFilter,
       },

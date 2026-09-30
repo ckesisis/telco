@@ -1,21 +1,18 @@
-import type { LeadStatus } from "@/generated/prisma/client";
 import type { ApiContext } from "@/lib/api/handler";
-import { LEAD_STATUSES } from "@/config/lead-statuses";
 import { db } from "@/lib/db";
 import { getLead } from "@/lib/services/lead.service";
-
-const CLOSED: LeadStatus[] = ["converted", "lost"];
 
 function queueWhere(organizationId: string, ctx: ApiContext) {
   return {
     organizationId,
     ...(ctx.isAdmin ? {} : { assignedUserId: ctx.userId }),
-    status: { notIn: CLOSED },
+    status: { isClosed: false, isConverted: false },
   };
 }
 
 const queueInclude = {
   source: true,
+  status: true,
   assignedUser: { select: { id: true, name: true } },
 } as const;
 
@@ -27,7 +24,7 @@ export async function listCallQueue(organizationId: string, ctx: ApiContext) {
     db.lead.findMany({
       where: {
         ...base,
-        OR: [{ status: "new", callbackAt: null }, { callbackAt: { lte: now } }],
+        OR: [{ callbackAt: null }, { callbackAt: { lte: now } }],
       },
       include: queueInclude,
       orderBy: [{ callbackAt: "asc" }, { createdAt: "asc" }],
@@ -61,30 +58,26 @@ export async function recordLeadCall(
   ) {
     throw new Error("Δεν έχετε πρόσβαση σε αυτό το lead");
   }
-  if (!LEAD_STATUSES.includes(input.status as LeadStatus)) {
+
+  const stage = await db.leadStage.findFirst({
+    where: { id: input.status, organizationId },
+  });
+  if (!stage || stage.isConverted) {
     throw new Error("Μη έγκυρη κατάσταση");
-  }
-  if (input.status === "converted") {
-    throw new Error("Χρησιμοποιήστε μετατροπή σε πελάτη");
   }
 
   const comment = input.comment?.trim() ?? "";
   const callbackAt =
-    input.status === "lost" || !input.callbackAt
-      ? null
-      : new Date(input.callbackAt);
+    stage.isClosed || !input.callbackAt ? null : new Date(input.callbackAt);
   if (callbackAt && Number.isNaN(callbackAt.getTime())) {
     throw new Error("Μη έγκυρη ημερομηνία επανάκλησης");
-  }
-  if (input.status === "lost" && input.callbackAt) {
-    throw new Error("Η επανάκληση δεν συνδυάζεται με χαμένο lead");
   }
 
   await db.$transaction(async (tx) => {
     await tx.lead.update({
       where: { id: lead.id },
       data: {
-        status: input.status as LeadStatus,
+        statusId: stage.id,
         callbackAt,
         assignedUserId:
           lead.assignedUserId ??

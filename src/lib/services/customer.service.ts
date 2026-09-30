@@ -1,6 +1,24 @@
 import { db } from "@/lib/db";
 import type { ApiContext } from "@/lib/api/handler";
-import { canAgentSeeRecord } from "@/lib/services/catalog.service";
+import { phoneLookupValues } from "@/lib/phone";
+
+type ExistingCustomer = {
+  id: string;
+  firstName: string;
+  lastName: string;
+};
+
+export class CustomerPhoneExistsError extends Error {
+  customer: ExistingCustomer;
+
+  constructor(customer: ExistingCustomer) {
+    super(
+      `Υπάρχει ήδη πελάτης με αυτό το τηλέφωνο: ${customer.firstName} ${customer.lastName}`
+    );
+    this.name = "CustomerPhoneExistsError";
+    this.customer = customer;
+  }
+}
 
 export async function listCustomers(
   organizationId: string,
@@ -58,7 +76,7 @@ export async function getCustomer(organizationId: string, id: string) {
         orderBy: { createdAt: "desc" },
       },
       leads: {
-        include: { source: true },
+        include: { source: true, status: true },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -88,6 +106,12 @@ export async function createCustomer(
     sourceId?: string | null;
   }
 ) {
+  const contactPhone = data.contactPhone.trim();
+  if (!contactPhone) throw new Error("Το τηλέφωνο είναι υποχρεωτικό");
+
+  const existing = await findCustomerByPhone(organizationId, contactPhone);
+  if (existing) throw new CustomerPhoneExistsError(existing);
+
   return db.customer.create({
     data: {
       organizationId,
@@ -98,7 +122,7 @@ export async function createCustomer(
       documentType: (data.documentType as never) ?? "id_card",
       documentNumber: data.documentNumber,
       documentIssuer: data.documentIssuer,
-      contactPhone: data.contactPhone,
+      contactPhone,
       homeStreet: data.homeStreet || null,
       homeNumber: data.homeNumber || null,
       homeCity: data.homeCity || null,
@@ -141,9 +165,9 @@ export async function findCustomerByPhone(
   organizationId: string,
   phone: string
 ) {
-  return db.customer.findUnique({
-    where: {
-      organizationId_contactPhone: { organizationId, contactPhone: phone },
-    },
+  const phones = phoneLookupValues(phone);
+  if (phones.length === 0) return null;
+  return db.customer.findFirst({
+    where: { organizationId, contactPhone: { in: phones } },
   });
 }

@@ -56,14 +56,14 @@ export function CustomerCreateForm({
       body: JSON.stringify(formValuesToPayload(form)),
     });
 
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error ?? "Σφάλμα");
+    const data = await res.json();
+    if (!res.ok && !data.customer) {
+      setError(typeof data.error === "string" ? data.error : "Σφάλμα");
       setLoading(false);
       return;
     }
 
-    const customer = await res.json();
+    const customer = data.customer ?? data;
     onSuccess({
       id: customer.id,
       firstName: customer.firstName,

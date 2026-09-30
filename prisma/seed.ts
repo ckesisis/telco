@@ -156,7 +156,7 @@ async function main() {
   }
 
   const superAdminEmail =
-    process.env.SEED_SUPERADMIN_EMAIL ?? "superadmin@demo.telco";
+    process.env.SEED_SUPERADMIN_EMAIL ?? "ckesisis@gmail.com";
   const superAdminPassword =
     process.env.SEED_SUPERADMIN_PASSWORD ?? "password123";
   await ensureCredentialUser(

@@ -8,7 +8,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
-import { LEAD_STATUS_LABELS } from "@/config/lead-statuses";
 
 export default async function CustomerDetailPage({
   params,
@@ -60,7 +59,7 @@ export default async function CustomerDetailPage({
             {customer.leads.map((lead) => (
               <Link key={lead.id} href={`/leads/${lead.id}`} className="flex justify-between rounded-lg border p-3 hover:bg-slate-50">
                 <span>{lead.phone}</span>
-                <span>{LEAD_STATUS_LABELS[lead.status]}</span>
+                <span>{lead.status.name}</span>
               </Link>
             ))}
           </CardContent>

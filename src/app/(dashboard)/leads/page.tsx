@@ -1,21 +1,34 @@
 import Link from "next/link";
 import { requireAuthContext } from "@/lib/tenancy";
 import { listLeads } from "@/lib/services/lead.service";
-import { PageHeader, DataTable } from "@/components/shared/page-header";
+import { getLeadColumnPreferences } from "@/lib/services/user-preference.service";
+import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { LEAD_STATUS_LABELS } from "@/config/lead-statuses";
 import { formatDateTime } from "@/lib/utils";
+import { LeadsTable } from "./leads-table";
 
-export default async function LeadsPage() {
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const ctx = await requireAuthContext();
-  const leads = await listLeads(ctx.organizationId, ctx);
+  const { q } = await searchParams;
+  const query = q?.trim() ?? "";
+  const [leads, columns] = await Promise.all([
+    listLeads(ctx.organizationId, ctx, { search: query || undefined }),
+    getLeadColumnPreferences(ctx.userId),
+  ]);
 
   return (
     <div>
       <PageHeader
         title="Leads"
-        description="Εισερχόμενα leads από όλες τις πηγές"
+        description={
+          query
+            ? `${leads.length} αποτελέσματα για «${query}»`
+            : "Εισερχόμενα leads από όλες τις πηγές"
+        }
         action={
           <div className="flex gap-2">
             <Button asChild variant="outline">
@@ -27,19 +40,25 @@ export default async function LeadsPage() {
           </div>
         }
       />
-      <DataTable
-        headers={["Τηλέφωνο", "Όνομα", "Πηγή", "Campaign", "Κατάσταση", "Ημ/νία", ""]}
-        rows={leads.map((lead) => [
-          lead.phone,
-          [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—",
-          lead.source.name,
-          lead.campaignName ?? "—",
-          <Badge key={lead.id}>{LEAD_STATUS_LABELS[lead.status]}</Badge>,
-          formatDateTime(lead.createdAt),
-          <Link key={`link-${lead.id}`} href={`/leads/${lead.id}`} className="text-sm text-blue-600 hover:underline">
-            Προβολή
-          </Link>,
-        ])}
+      <LeadsTable
+        query={query}
+        columns={columns}
+        leads={leads.map((lead) => ({
+          id: lead.id,
+          phone: lead.phone,
+          name: [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—",
+          email: lead.email || "—",
+          source: lead.source.name,
+          campaign: lead.campaignName ?? "—",
+          statusName: lead.status.name,
+          statusColor: lead.status.color,
+          agent: lead.assignedUser?.name ?? "—",
+          callbackAt: formatDateTime(lead.callbackAt),
+          createdAt: formatDateTime(lead.createdAt),
+          notes: lead.notes?.trim() || "—",
+          adset: lead.adsetName ?? "—",
+          ad: lead.adName ?? "—",
+        }))}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import {
   Smartphone,
   UserPlus,
   Phone,
+  PhoneCall,
   BarChart3,
   Settings,
   LogOut,
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/leads/calls", label: "Προς κλήση", icon: Phone },
+  { href: "/calls", label: "Κλήσεις", icon: PhoneCall },
   { href: "/leads", label: "Leads", icon: UserPlus },
   { href: "/customers", label: "Πελάτες", icon: Users },
   { href: "/orders", label: "Παραγγελίες", icon: ShoppingCart },
@@ -32,6 +34,7 @@ const settingsItems = [
   { href: "/settings/offers", label: "Προσφορές" },
   { href: "/settings/sources", label: "Πηγές" },
   { href: "/settings/app-statuses", label: "Καταστάσεις" },
+  { href: "/settings/lead-statuses", label: "Καταστάσεις leads" },
   { href: "/settings/users", label: "Χρήστες" },
   { href: "/settings/lead-distribution", label: "Μοίρασμα leads" },
   { href: "/settings/organization", label: "Οργανισμός" },

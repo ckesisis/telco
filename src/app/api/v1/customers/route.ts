@@ -1,9 +1,11 @@
+import { NextResponse } from "next/server";
 import { withAuth, withAdmin, jsonOk, jsonError } from "@/lib/api/handler";
 import {
   listCustomers,
   getCustomer,
   createCustomer,
   updateCustomer,
+  CustomerPhoneExistsError,
 } from "@/lib/services/customer.service";
 
 export const GET = withAuth(async (req, ctx) => {
@@ -23,6 +25,16 @@ export const POST = withAuth(async (req, ctx) => {
     const customer = await createCustomer(ctx.organizationId, body);
     return jsonOk(customer, 201);
   } catch (err) {
+    if (err instanceof CustomerPhoneExistsError) {
+      return NextResponse.json(
+        { error: err.message, customer: err.customer },
+        { status: 409 }
+      );
+    }
+    const code = err && typeof err === "object" && "code" in err ? err.code : null;
+    if (code === "P2002") {
+      return jsonError("Υπάρχει ήδη πελάτης με αυτό το τηλέφωνο", 409);
+    }
     return jsonError(err instanceof Error ? err.message : "Error", 400);
   }
 });

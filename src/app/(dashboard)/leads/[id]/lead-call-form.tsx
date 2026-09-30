@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -13,10 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "@/config/lead-statuses";
-import type { LeadStatus } from "@/generated/prisma/client";
-
-const CALL_STATUSES = LEAD_STATUSES.filter((status) => status !== "converted");
+type LeadStageOption = {
+  id: string;
+  name: string;
+  isClosed: boolean;
+};
 
 function toLocalInput(value: string | null) {
   if (!value) return "";
@@ -28,21 +34,33 @@ function toLocalInput(value: string | null) {
 
 export function LeadCallForm({
   leadId,
-  status,
+  statusId,
   callbackAt,
+  stages,
 }: {
   leadId: string;
-  status: LeadStatus;
+  statusId: string;
   callbackAt: string | null;
+  stages: LeadStageOption[];
 }) {
   const router = useRouter();
-  const [nextStatus, setNextStatus] = useState<LeadStatus>(
-    status === "converted" ? "contacted" : status
+  const [nextStatus, setNextStatus] = useState(
+    stages.some((stage) => stage.id === statusId) ? statusId : (stages[0]?.id ?? "")
   );
+  const selected = stages.find((stage) => stage.id === nextStatus);
   const [comment, setComment] = useState("");
   const [callback, setCallback] = useState(toLocalInput(callbackAt));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  function openDialog() {
+    setNextStatus(stages.some((stage) => stage.id === statusId) ? statusId : (stages[0]?.id ?? ""));
+    setCallback(toLocalInput(callbackAt));
+    setComment("");
+    setError("");
+    setOpen(true);
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -58,9 +76,7 @@ export function LeadCallForm({
         status: nextStatus,
         comment,
         callbackAt:
-          nextStatus === "lost" || !callback
-            ? null
-            : new Date(callback).toISOString(),
+          selected?.isClosed || !callback ? null : new Date(callback).toISOString(),
       }),
     });
 
@@ -73,29 +89,34 @@ export function LeadCallForm({
 
     setComment("");
     setSaving(false);
+    setOpen(false);
     router.refresh();
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Αποτέλεσμα κλήσης</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      <Button type="button" onClick={openDialog}>
+        Αποτέλεσμα κλήσης
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Αποτέλεσμα κλήσης</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Κατάσταση</Label>
             <Select
               value={nextStatus}
-              onValueChange={(value) => setNextStatus(value as LeadStatus)}
+              onValueChange={setNextStatus}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CALL_STATUSES.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {LEAD_STATUS_LABELS[item]}
+                {stages.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.id}>
+                    {stage.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -110,6 +131,7 @@ export function LeadCallForm({
               placeholder="Τι είπε ο πελάτης"
             />
           </div>
+          {!selected?.isClosed && (
           <div className="space-y-2">
             <Label htmlFor="lead-callback">Επανάκληση</Label>
             <input
@@ -123,12 +145,14 @@ export function LeadCallForm({
               Αφήστε κενό αν δεν χρειάζεται νέα κλήση.
             </p>
           </div>
+          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" disabled={saving}>
             {saving ? "Αποθήκευση..." : "Αποθήκευση"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

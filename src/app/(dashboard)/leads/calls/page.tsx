@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { requireAuthContext } from "@/lib/tenancy";
 import { listCallQueue } from "@/lib/services/lead-call.service";
 import { PageHeader, DataTable, EmptyState } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
-import { LEAD_STATUS_LABELS } from "@/config/lead-statuses";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function CallListPage() {
@@ -20,11 +20,18 @@ export default async function CallListPage() {
       [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—",
       lead.source.name,
       lead.campaignName ?? "—",
-      <Badge key={lead.id}>{LEAD_STATUS_LABELS[lead.status]}</Badge>,
+      <Badge key={lead.id} style={{ backgroundColor: lead.status.color, color: "#fff" }}>
+        {lead.status.name}
+      </Badge>,
       formatDateTime(lead.callbackAt),
       ...(ctx.isAdmin ? [lead.assignedUser?.name ?? "—"] : []),
-      <Link key={`open-${lead.id}`} href={`/leads/${lead.id}`} className="text-sm text-blue-600 hover:underline">
-        Κλήση
+      <Link
+        key={`open-${lead.id}`}
+        href={`/leads/${lead.id}`}
+        aria-label="Προβολή lead"
+        className="inline-flex rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+      >
+        <Eye className="h-4 w-4" />
       </Link>,
     ]);
   }

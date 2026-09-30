@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { seedLeadStages } from "@/lib/services/lead-status.service";
 
 const DEFAULT_STATUSES = [
   { name: "Αναμονή Επιβεβαίωσης", color: "#f59e0b", isDefault: true, isTerminal: false, isSuccess: false },
@@ -24,6 +25,8 @@ export async function seedOrganizationCatalog(organizationId: string) {
       ...status,
     })),
   });
+
+  await seedLeadStages(organizationId);
 
   await db.source.createMany({
     data: DEFAULT_SOURCES.map((source) => ({

@@ -3,16 +3,45 @@ import { requireAuthContext } from "@/lib/tenancy";
 import { listApplications } from "@/lib/services/order.service";
 import { PageHeader, DataTable } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PRODUCT_LINE_LABELS } from "@/config/product-lines";
 import { formatDateTime } from "@/lib/utils";
 
-export default async function AppsPage() {
+export default async function AppsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const ctx = await requireAuthContext();
-  const apps = await listApplications(ctx.organizationId, ctx);
+  const { q } = await searchParams;
+  const query = q?.trim() ?? "";
+  const apps = await listApplications(ctx.organizationId, ctx, {
+    search: query || undefined,
+  });
 
   return (
     <div>
-      <PageHeader title="Αιτήσεις" description="Λειτουργική λίστα αιτήσεων" />
+      <PageHeader
+        title="Αιτήσεις"
+        description={
+          query ? `${apps.length} αποτελέσματα για «${query}»` : "Λειτουργική λίστα αιτήσεων"
+        }
+      />
+      <form method="get" className="mb-4 flex gap-2">
+        <Input
+          name="q"
+          defaultValue={query}
+          placeholder="Αναζήτηση: πελάτης, τηλέφωνο, προσφορά, κατάσταση"
+          className="max-w-md"
+        />
+        <Button type="submit">Αναζήτηση</Button>
+        {query && (
+          <Button asChild variant="outline">
+            <Link href="/apps">Καθαρισμός</Link>
+          </Button>
+        )}
+      </form>
       <DataTable
         headers={["Πελάτης", "Γραμμή", "Προσφορά", "Κατάσταση", "Ημ/νία", ""]}
         rows={apps.map((app) => [

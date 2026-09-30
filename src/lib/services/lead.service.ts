@@ -7,35 +7,49 @@ import {
   EMPTY_ATTRIBUTION,
   readLeadAttribution,
 } from "@/lib/lead-attribution";
+import {
+  getConvertedLeadStageId,
+  getDefaultLeadStageId,
+} from "@/lib/services/lead-status.service";
 
 export async function listLeads(
   organizationId: string,
   ctx: ApiContext,
   filters?: { status?: string; search?: string }
 ) {
+  const search = filters?.search?.trim();
+  const digits = search?.replace(/\D/g, "") ?? "";
+  const access = ctx.isAdmin
+    ? []
+    : [{ OR: [{ assignedUserId: ctx.userId }, { assignedUserId: null }] }];
+  const match = search
+    ? [
+        {
+          OR: [
+            { phone: { contains: search } },
+            ...(digits.length >= 3 && digits !== search ? [{ phone: { contains: digits } }] : []),
+            { firstName: { contains: search, mode: "insensitive" as const } },
+            { lastName: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } },
+            { campaignName: { contains: search, mode: "insensitive" as const } },
+            { notes: { contains: search, mode: "insensitive" as const } },
+            { source: { name: { contains: search, mode: "insensitive" as const } } },
+            { status: { name: { contains: search, mode: "insensitive" as const } } },
+            { assignedUser: { name: { contains: search, mode: "insensitive" as const } } },
+          ],
+        },
+      ]
+    : [];
+
   return db.lead.findMany({
     where: {
       organizationId,
-      ...(filters?.status && { status: filters.status as never }),
-      ...(filters?.search && {
-        OR: [
-          { phone: { contains: filters.search } },
-          { firstName: { contains: filters.search, mode: "insensitive" } },
-          { lastName: { contains: filters.search, mode: "insensitive" } },
-          { email: { contains: filters.search, mode: "insensitive" } },
-        ],
-      }),
-      ...(ctx.isAdmin
-        ? {}
-        : {
-            OR: [
-              { assignedUserId: ctx.userId },
-              { assignedUserId: null },
-            ],
-          }),
+      ...(filters?.status && { statusId: filters.status }),
+      ...(access.length + match.length > 0 ? { AND: [...access, ...match] } : {}),
     },
     include: {
       source: true,
+      status: true,
       assignedUser: true,
       customer: true,
       order: true,
@@ -50,6 +64,7 @@ export async function getLead(organizationId: string, id: string) {
     where: { id, organizationId },
     include: {
       source: true,
+      status: true,
       assignedUser: true,
       customer: true,
       order: true,
@@ -128,6 +143,7 @@ export async function createLead(
       email: data.email,
       notes: data.notes,
       ...attribution,
+      statusId: await getDefaultLeadStageId(organizationId),
       assignedUserId: await resolveAssignee(
         organizationId,
         ctx,
@@ -161,8 +177,13 @@ export async function updateLead(
   }
 
   const next: Record<string, unknown> = {};
-  if (typeof data.status === "string" && data.status !== "converted") {
-    next.status = data.status;
+  if (typeof data.statusId === "string") {
+    const stage = await db.leadStage.findFirst({
+      where: { id: data.statusId, organizationId, isConverted: false },
+    });
+    if (!stage) throw new Error("Μη έγκυρη κατάσταση");
+    next.statusId = stage.id;
+    if (stage.isClosed) next.callbackAt = null;
   }
   if (typeof data.notes === "string") next.notes = data.notes;
   if (typeof data.firstName === "string") next.firstName = data.firstName;
@@ -183,7 +204,7 @@ export async function convertLead(
 ) {
   const lead = await getLead(organizationId, leadId);
   if (!lead) throw new Error("Lead not found");
-  if (lead.status === "converted") throw new Error("Lead already converted");
+  if (lead.status.isConverted) throw new Error("Lead already converted");
 
   let customer = lead.customer;
   if (!customer) {
@@ -203,7 +224,7 @@ export async function convertLead(
   const updated = await db.lead.update({
     where: { id: leadId },
     data: {
-      status: "converted",
+      statusId: await getConvertedLeadStageId(organizationId),
       customerId: customer.id,
     },
     include: { customer: true, source: true },
@@ -252,7 +273,12 @@ export async function importLeads(
         }
       } else {
         const existing = await db.lead.findFirst({
-          where: { organizationId, sourceId, phone: row.phone, status: { not: "lost" } },
+          where: {
+            organizationId,
+            sourceId,
+            phone: row.phone,
+            status: { isClosed: false, isConverted: false },
+          },
         });
         if (existing) {
           results.skipped++;
