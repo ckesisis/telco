@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isMetaChannel } from "@/config/source-channels";
 import { listLeadStages } from "@/lib/services/lead-status.service";
 import { formatDateTime } from "@/lib/utils";
+import { getMemberProfiles } from "@/lib/services/catalog.service";
 import { LeadActions } from "./lead-actions";
+import { LeadAssignee } from "../lead-assignee";
 import { LeadCallForm } from "./lead-call-form";
 
 const CALL_STATUS_LABELS: Record<CallHistoryStatus, string> = {
@@ -50,11 +52,25 @@ export default async function LeadDetailPage({
 }) {
   const { id } = await params;
   const ctx = await requireAuthContext();
-  const [lead, stages] = await Promise.all([
+  const [lead, stages, members] = await Promise.all([
     getLead(ctx.organizationId, id),
     listLeadStages(ctx.organizationId),
+    ctx.isAdmin ? getMemberProfiles(ctx.organizationId) : Promise.resolve([]),
   ]);
   if (!lead || !canAccessLead(ctx, lead)) notFound();
+
+  const agents = members
+    .filter((member) => member.role === "member" && !member.profile?.blocked)
+    .map((member) => ({ userId: member.userId, name: member.user.name }));
+  if (
+    lead.assignedUser &&
+    !agents.some((agent) => agent.userId === lead.assignedUserId)
+  ) {
+    agents.unshift({
+      userId: lead.assignedUser.id,
+      name: lead.assignedUser.name,
+    });
+  }
 
   const calls = await listCallHistoryForPhone(ctx.organizationId, lead.phone);
   const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Χωρίς όνομα";
@@ -101,7 +117,20 @@ export default async function LeadDetailPage({
               </Badge>
             }
           />
-          <Fact label="Agent" value={lead.assignedUser?.name ?? "—"} />
+          <Fact
+            label="Agent"
+            value={
+              ctx.isAdmin ? (
+                <LeadAssignee
+                  leadId={lead.id}
+                  assignedUserId={lead.assignedUserId}
+                  agents={agents}
+                />
+              ) : (
+                (lead.assignedUser?.name ?? "—")
+              )
+            }
+          />
           <Fact label="Επανάκληση" value={formatDateTime(lead.callbackAt)} />
         </CardContent>
       </Card>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAuthContext } from "@/lib/tenancy";
+import { getMemberProfiles } from "@/lib/services/catalog.service";
 import { listLeadCampaigns, listLeadsPage } from "@/lib/services/lead.service";
 import { listLeadStages } from "@/lib/services/lead-status.service";
 import { getLeadColumnPreferences } from "@/lib/services/user-preference.service";
@@ -30,7 +31,7 @@ export default async function LeadsPage({
   const to = params.to?.trim() ?? "";
   const campaign = params.campaign?.trim() ?? "";
   const requestedPage = Number(params.page);
-  const [result, columns, stages, campaigns] = await Promise.all([
+  const [result, columns, stages, campaigns, members] = await Promise.all([
     listLeadsPage(ctx.organizationId, ctx, {
       search: query || undefined,
       status: status.length > 0 ? status : undefined,
@@ -42,7 +43,11 @@ export default async function LeadsPage({
     getLeadColumnPreferences(ctx.userId),
     listLeadStages(ctx.organizationId),
     listLeadCampaigns(ctx.organizationId, ctx),
+    ctx.isAdmin ? getMemberProfiles(ctx.organizationId) : Promise.resolve([]),
   ]);
+  const agents = members
+    .filter((member) => member.role === "member" && !member.profile?.blocked)
+    .map((member) => ({ userId: member.userId, name: member.user.name }));
   const { leads, total, page, pageCount } = result;
   const filtered = Boolean(query || status.length > 0 || from || to || campaign);
 
@@ -81,6 +86,7 @@ export default async function LeadsPage({
           color: stage.color,
         }))}
         campaigns={campaigns}
+        agents={ctx.isAdmin ? agents : undefined}
         columns={columns}
         leads={leads.map((lead) => ({
           id: lead.id,
@@ -92,6 +98,7 @@ export default async function LeadsPage({
           statusName: lead.status.name,
           statusColor: lead.status.color,
           agent: lead.assignedUser?.name ?? "—",
+          agentId: lead.assignedUserId,
           callbackAt: formatDateTime(lead.callbackAt),
           createdAt: formatDateTime(lead.createdAt),
           notes: lead.notes?.trim() || "—",

@@ -24,6 +24,7 @@ import { DataTable } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LeadAssignee } from "./lead-assignee";
 import { LeadsFilters, leadsHref, type LeadFilters } from "./leads-filters";
 import {
   LEAD_COLUMNS,
@@ -42,6 +43,7 @@ export type LeadTableRow = {
   statusName: string;
   statusColor: string;
   agent: string;
+  agentId: string | null;
   callbackAt: string;
   createdAt: string;
   notes: string;
@@ -51,7 +53,11 @@ export type LeadTableRow = {
 
 const LABELS = new Map(LEAD_COLUMNS.map((column) => [column.id, column.label]));
 
-function cell(lead: LeadTableRow, id: LeadColumnId) {
+function cell(
+  lead: LeadTableRow,
+  id: LeadColumnId,
+  agents?: { userId: string; name: string }[]
+) {
   switch (id) {
     case "phone":
       return lead.phone;
@@ -69,8 +75,16 @@ function cell(lead: LeadTableRow, id: LeadColumnId) {
           {lead.statusName}
         </Badge>
       );
-    case "agent":
-      return lead.agent;
+    case "agent": {
+      if (!agents) return lead.agent;
+      const options =
+        lead.agentId && !agents.some((agent) => agent.userId === lead.agentId)
+          ? [{ userId: lead.agentId, name: lead.agent }, ...agents]
+          : agents;
+      return (
+        <LeadAssignee leadId={lead.id} assignedUserId={lead.agentId} agents={options} />
+      );
+    }
     case "callbackAt":
       return lead.callbackAt;
     case "createdAt":
@@ -132,6 +146,7 @@ export function LeadsTable({
   total,
   statuses,
   campaigns,
+  agents,
 }: {
   leads: LeadTableRow[];
   columns: LeadColumnPref[];
@@ -145,6 +160,7 @@ export function LeadsTable({
   total: number;
   statuses: { id: string; name: string; color: string }[];
   campaigns: string[];
+  agents?: { userId: string; name: string }[];
 }) {
   const [columns, setColumns] = useState(initialColumns);
   const [error, setError] = useState("");
@@ -222,7 +238,7 @@ export function LeadsTable({
       <DataTable
         headers={[...visible.map((column) => LABELS.get(column.id) ?? column.id), ""]}
         rows={leads.map((lead) => [
-          ...visible.map((column) => cell(lead, column.id)),
+          ...visible.map((column) => cell(lead, column.id, agents)),
           <Link
             key={`link-${lead.id}`}
             href={`/leads/${lead.id}`}

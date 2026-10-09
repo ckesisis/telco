@@ -264,6 +264,28 @@ export async function updateLead(
   if (typeof data.firstName === "string") next.firstName = data.firstName;
   if (typeof data.lastName === "string") next.lastName = data.lastName;
   if (typeof data.email === "string") next.email = data.email;
+  if ("assignedUserId" in data) {
+    if (!ctx.isAdmin) {
+      throw new Error("Δεν μπορείτε να αλλάξετε τον agent");
+    }
+    const assignedUserId = data.assignedUserId;
+    if (typeof assignedUserId !== "string" || !assignedUserId) {
+      throw new Error("Μη έγκυρος agent");
+    }
+    if (assignedUserId !== lead.assignedUserId) {
+      const member = await db.member.findFirst({
+        where: { organizationId, userId: assignedUserId, role: "member" },
+      });
+      if (!member) throw new Error("Μη έγκυρος agent");
+      const profile = await db.userProfile.findUnique({
+        where: {
+          organizationId_userId: { organizationId, userId: assignedUserId },
+        },
+      });
+      if (profile?.blocked) throw new Error("Ο agent είναι αποκλεισμένος");
+    }
+    next.assignedUserId = assignedUserId;
+  }
 
   return db.lead.update({
     where: { id, organizationId },

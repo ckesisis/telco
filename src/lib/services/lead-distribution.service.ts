@@ -1,6 +1,58 @@
 import { db } from "@/lib/db";
 import { getMemberProfiles } from "@/lib/services/catalog.service";
 
+const DISTRIBUTION_TIME_ZONE = "Europe/Athens";
+
+function timezoneOffsetMs(timeZone: string, date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(date);
+  const value = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+  const asUtc = Date.UTC(
+    Number(value.year),
+    Number(value.month) - 1,
+    Number(value.day),
+    value.hour === "24" ? 0 : Number(value.hour),
+    Number(value.minute),
+    Number(value.second)
+  );
+  return asUtc - date.getTime();
+}
+
+function zonedDayStart(timeZone: string, year: number, month: number, day: number) {
+  const utcMidnight = Date.UTC(year, month - 1, day);
+  const offset = timezoneOffsetMs(timeZone, new Date(utcMidnight));
+  return new Date(utcMidnight - timezoneOffsetMs(timeZone, new Date(utcMidnight - offset)));
+}
+
+function distributionDayRange(now = new Date()) {
+  const [year, month, day] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: DISTRIBUTION_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(now)
+    .split("-")
+    .map(Number);
+
+  return {
+    gte: zonedDayStart(DISTRIBUTION_TIME_ZONE, year, month, day),
+    lt: zonedDayStart(DISTRIBUTION_TIME_ZONE, year, month, day + 1),
+  };
+}
+
 export async function getLeadDistribution(organizationId: string) {
   const [distribution, shares, sources, members, catalogSources] =
     await Promise.all([
@@ -140,6 +192,7 @@ export async function pickDistributedAgent(
     where: {
       organizationId,
       assignedUserId: { in: activeShares.map((share) => share.userId) },
+      createdAt: distributionDayRange(),
       ...(sourceLinks.length > 0
         ? { sourceId: { in: sourceLinks.map((link) => link.sourceId) } }
         : {}),

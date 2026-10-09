@@ -81,7 +81,7 @@ export function LeadDistributionSettings({ settings }: { settings: Settings }) {
     <div>
       <PageHeader
         title="Μοίρασμα leads"
-        description="Μοιράστε τα εισερχόμενα leads στους sales agents με ποσοστά"
+        description="Μοιράστε τα εισερχόμενα leads κάθε ημέρας στους sales agents με ποσοστά"
       />
       <form onSubmit={handleSave} className="space-y-6">
         <Card>
