@@ -23,8 +23,8 @@ import { Columns3, GripVertical } from "lucide-react";
 import { DataTable } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LeadsFilters, leadsHref, type LeadFilters } from "./leads-filters";
 import {
   LEAD_COLUMNS,
   normalizeLeadColumns,
@@ -123,10 +123,28 @@ export function LeadsTable({
   leads,
   columns: initialColumns,
   query,
+  status,
+  from,
+  to,
+  campaign,
+  page,
+  pageCount,
+  total,
+  statuses,
+  campaigns,
 }: {
   leads: LeadTableRow[];
   columns: LeadColumnPref[];
   query: string;
+  status: string[];
+  from: string;
+  to: string;
+  campaign: string;
+  page: number;
+  pageCount: number;
+  total: number;
+  statuses: { id: string; name: string; color: string }[];
+  campaigns: string[];
 }) {
   const [columns, setColumns] = useState(initialColumns);
   const [error, setError] = useState("");
@@ -135,6 +153,7 @@ export function LeadsTable({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   const visible = columns.filter((column) => column.visible);
+  const filters: LeadFilters = { q: query, status, from, to, campaign };
 
   async function persist(next: LeadColumnPref[]) {
     const normalized = normalizeLeadColumns(next);
@@ -170,21 +189,11 @@ export function LeadsTable({
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2">
-        <form method="get" className="flex min-w-0 flex-1 gap-2">
-          <Input
-            name="q"
-            defaultValue={query}
-            placeholder="Αναζήτηση: τηλέφωνο, όνομα, πηγή, κατάσταση"
-            className="max-w-md"
-          />
-          <Button type="submit">Αναζήτηση</Button>
-          {query && (
-            <Button asChild variant="outline">
-              <Link href="/leads">Καθαρισμός</Link>
-            </Button>
-          )}
-        </form>
+      <LeadsFilters
+        filters={filters}
+        statuses={statuses}
+        campaigns={campaigns}
+        actions={
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" variant="outline" size="icon" aria-label="Στήλες">
@@ -208,7 +217,8 @@ export function LeadsTable({
             {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
           </PopoverContent>
         </Popover>
-      </div>
+        }
+      />
       <DataTable
         headers={[...visible.map((column) => LABELS.get(column.id) ?? column.id), ""]}
         rows={leads.map((lead) => [
@@ -222,6 +232,33 @@ export function LeadsTable({
           </Link>,
         ])}
       />
+      {total > 0 && (
+        <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
+          <p>
+            Σελίδα {page} από {pageCount}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={leadsHref(filters, page - 1)}>Προηγούμενη</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Προηγούμενη
+              </Button>
+            )}
+            {page < pageCount ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={leadsHref(filters, page + 1)}>Επόμενη</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Επόμενη
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

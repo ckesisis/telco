@@ -12,13 +12,47 @@ import {
   getDefaultLeadStageId,
 } from "@/lib/services/lead-status.service";
 
-export async function listLeads(
-  organizationId: string,
-  ctx: ApiContext,
-  filters?: { status?: string; search?: string }
-) {
+const leadListInclude = {
+  source: true,
+  status: true,
+  assignedUser: true,
+  customer: true,
+  order: true,
+} as const;
+
+export const LEAD_PAGE_SIZE = 25;
+
+type LeadListFilters = {
+  status?: string | string[];
+  search?: string;
+  campaign?: string;
+  from?: string;
+  to?: string;
+};
+
+function statusIds(status?: string | string[]) {
+  const values = Array.isArray(status) ? status : status ? [status] : [];
+  return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function dayStart(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dayEnd(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T23:59:59.999`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function leadListWhere(organizationId: string, ctx: ApiContext, filters?: LeadListFilters) {
   const search = filters?.search?.trim();
   const digits = search?.replace(/\D/g, "") ?? "";
+  const from = filters?.from ? dayStart(filters.from) : null;
+  const to = filters?.to ? dayEnd(filters.to) : null;
+  const statuses = statusIds(filters?.status);
   const access = ctx.isAdmin
     ? []
     : [{ OR: [{ assignedUserId: ctx.userId }, { assignedUserId: null }] }];
@@ -41,22 +75,63 @@ export async function listLeads(
       ]
     : [];
 
+  return {
+    organizationId,
+    ...(statuses.length > 0 && { statusId: { in: statuses } }),
+    ...(filters?.campaign && { campaignName: filters.campaign }),
+    ...((from || to) && {
+      createdAt: {
+        ...(from && { gte: from }),
+        ...(to && { lte: to }),
+      },
+    }),
+    ...(access.length + match.length > 0 ? { AND: [...access, ...match] } : {}),
+  };
+}
+
+export async function listLeads(
+  organizationId: string,
+  ctx: ApiContext,
+  filters?: { status?: string; search?: string }
+) {
   return db.lead.findMany({
-    where: {
-      organizationId,
-      ...(filters?.status && { statusId: filters.status }),
-      ...(access.length + match.length > 0 ? { AND: [...access, ...match] } : {}),
-    },
-    include: {
-      source: true,
-      status: true,
-      assignedUser: true,
-      customer: true,
-      order: true,
-    },
+    where: leadListWhere(organizationId, ctx, filters),
+    include: leadListInclude,
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+}
+
+export async function listLeadsPage(
+  organizationId: string,
+  ctx: ApiContext,
+  filters: LeadListFilters & { page?: number }
+) {
+  const where = leadListWhere(organizationId, ctx, filters);
+  const total = await db.lead.count({ where });
+  const pageCount = Math.max(1, Math.ceil(total / LEAD_PAGE_SIZE));
+  const page = Math.min(Math.max(1, filters.page ?? 1), pageCount);
+  const leads = await db.lead.findMany({
+    where,
+    include: leadListInclude,
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * LEAD_PAGE_SIZE,
+    take: LEAD_PAGE_SIZE,
+  });
+  return { leads, total, page, pageCount, pageSize: LEAD_PAGE_SIZE };
+}
+
+export async function listLeadCampaigns(organizationId: string, ctx: ApiContext) {
+  const rows = await db.lead.findMany({
+    where: {
+      ...leadListWhere(organizationId, ctx),
+      campaignName: { not: null },
+    },
+    distinct: ["campaignName"],
+    select: { campaignName: true },
+    orderBy: { campaignName: "asc" },
+  });
+  return rows.flatMap((row) => (row.campaignName ? [row.campaignName] : []));
 }
 
 export async function getLead(organizationId: string, id: string) {
