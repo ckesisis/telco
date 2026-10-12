@@ -93,6 +93,7 @@ export default async function LeadsPage({
           phone: lead.phone,
           name: [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—",
           email: lead.email || "—",
+          previousProvider: lead.previousProvider || "—",
           source: lead.source.name,
           campaign: lead.campaignName ?? "—",
           statusName: lead.status.name,

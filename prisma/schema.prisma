@@ -451,7 +451,8 @@ model Lead {
   firstName      String?
   lastName       String?
   phone          String
-  email          String?
+  email            String?
+  previousProvider String?
   notes          String?
   campaignName   String?
   adsetName      String?

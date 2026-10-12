@@ -38,6 +38,7 @@ export type LeadTableRow = {
   phone: string;
   name: string;
   email: string;
+  previousProvider: string;
   source: string;
   campaign: string;
   statusName: string;
@@ -65,6 +66,8 @@ function cell(
       return lead.name;
     case "email":
       return lead.email;
+    case "previousProvider":
+      return lead.previousProvider;
     case "source":
       return lead.source;
     case "campaign":

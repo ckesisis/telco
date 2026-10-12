@@ -142,6 +142,7 @@ export default async function LeadDetailPage({
           </CardHeader>
           <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
             <Fact label="Email" value={lead.email ?? "—"} />
+            <Fact label="Προηγούμενος Πάροχος" value={lead.previousProvider ?? "—"} />
             <Fact label="Δημιουργήθηκε" value={formatDateTime(lead.createdAt)} />
             <Fact
               label="Πελάτης"

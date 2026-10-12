@@ -7,6 +7,7 @@ import {
   EMPTY_ATTRIBUTION,
   readLeadAttribution,
 } from "@/lib/lead-attribution";
+import { readPreviousProvider } from "@/config/application-types";
 import {
   getConvertedLeadStageId,
   getDefaultLeadStageId,
@@ -65,6 +66,7 @@ function leadListWhere(organizationId: string, ctx: ApiContext, filters?: LeadLi
             { firstName: { contains: search, mode: "insensitive" as const } },
             { lastName: { contains: search, mode: "insensitive" as const } },
             { email: { contains: search, mode: "insensitive" as const } },
+            { previousProvider: { contains: search, mode: "insensitive" as const } },
             { campaignName: { contains: search, mode: "insensitive" as const } },
             { notes: { contains: search, mode: "insensitive" as const } },
             { source: { name: { contains: search, mode: "insensitive" as const } } },
@@ -183,6 +185,7 @@ export async function createLead(
     lastName?: string | null;
     email?: string | null;
     notes?: string | null;
+    previousProvider?: string | null;
     assignedUserId?: string | null;
     externalId?: string | null;
     payload?: Record<string, unknown> | null;
@@ -217,6 +220,10 @@ export async function createLead(
       lastName: data.lastName,
       email: data.email,
       notes: data.notes,
+      previousProvider: readPreviousProvider(
+        data.previousProvider ??
+          (data as { previous_provider?: unknown }).previous_provider
+      ),
       ...attribution,
       statusId: await getDefaultLeadStageId(organizationId),
       assignedUserId: await resolveAssignee(
@@ -340,6 +347,7 @@ export async function importLeads(
     lastName?: string;
     email?: string;
     notes?: string;
+    previousProvider?: string;
     externalId?: string;
     campaignName?: string;
     adsetName?: string;

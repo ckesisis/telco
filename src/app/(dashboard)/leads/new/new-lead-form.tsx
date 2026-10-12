@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PREVIOUS_PROVIDERS } from "@/config/application-types";
 import { isMetaChannel } from "@/config/source-channels";
 
 type Source = { id: string; name: string; channel: string };
@@ -34,6 +35,7 @@ export default function NewLeadPage({
     firstName: "",
     lastName: "",
     email: "",
+    previousProvider: "",
     notes: "",
     sourceId: sources[0]?.id ?? "",
     campaignName: "",
@@ -110,6 +112,24 @@ export default function NewLeadPage({
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Προηγούμενος Πάροχος</Label>
+              <Select
+                value={form.previousProvider || undefined}
+                onValueChange={(value) => setForm({ ...form, previousProvider: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Επιλέξτε" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PREVIOUS_PROVIDERS.map((provider) => (
+                    <SelectItem key={provider} value={provider}>
+                      {provider}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Πηγή *</Label>

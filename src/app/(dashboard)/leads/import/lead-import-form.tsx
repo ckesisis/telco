@@ -21,6 +21,7 @@ type ImportField =
   | "firstName"
   | "lastName"
   | "email"
+  | "previousProvider"
   | "notes"
   | "externalId"
   | "campaignName"
@@ -39,6 +40,11 @@ const FIELDS: { key: ImportField; label: string; required?: boolean; aliases: st
   { key: "firstName", label: "Όνομα", aliases: ["firstname", "first_name", "όνομα"] },
   { key: "lastName", label: "Επώνυμο", aliases: ["lastname", "last_name", "επώνυμο"] },
   { key: "email", label: "Email", aliases: ["email"] },
+  {
+    key: "previousProvider",
+    label: "Προηγούμενος Πάροχος",
+    aliases: ["previousprovider", "previous_provider", "προηγούμενος πάροχος", "πάροχος"],
+  },
   { key: "notes", label: "Σημειώσεις", aliases: ["notes", "note"] },
   { key: "externalId", label: "Εξωτερικό ID", aliases: ["externalid", "external_id", "id"] },
   { key: "campaignName", label: "Campaign", aliases: ["campaignname", "campaign_name"] },
@@ -116,6 +122,7 @@ export default function LeadImportForm({ sources }: { sources: Source[] }) {
         firstName: values.firstName || undefined,
         lastName: values.lastName || undefined,
         email: values.email || undefined,
+        previousProvider: values.previousProvider || undefined,
         notes: values.notes || undefined,
         externalId: values.externalId || undefined,
         campaignName: values.campaignName || undefined,
