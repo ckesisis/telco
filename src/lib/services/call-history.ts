@@ -202,23 +202,70 @@ export async function listCallHistoryForPhone(organizationId: string, phone: str
   return groupCallEvents(events, agents);
 }
 
+export const CALL_HISTORY_PAGE_SIZE = 25;
+
+const HISTORY_STATUSES = new Set<CallHistoryStatus>(["ringing", "active", "missed", "completed"]);
+
+export type CallHistoryListFilters = {
+  query?: string;
+  status?: string;
+  direction?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+};
+
+function dayStart(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dayEnd(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T23:59:59.999`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function historyStatus(value?: string): CallHistoryStatus | undefined {
+  return value && HISTORY_STATUSES.has(value as CallHistoryStatus)
+    ? (value as CallHistoryStatus)
+    : undefined;
+}
+
+function historyDirection(value?: string): CallHistoryRow["direction"] | undefined {
+  return value === "incoming" || value === "outgoing" ? value : undefined;
+}
+
 export async function listCallHistory(
   organizationId: string,
-  options?: { take?: number; query?: string }
+  filters?: CallHistoryListFilters
 ) {
-  const take = options?.take ?? 100;
-  const query = options?.query?.trim() ?? "";
+  const query = filters?.query?.trim() ?? "";
+  const status = historyStatus(filters?.status);
+  const direction = historyDirection(filters?.direction);
+  const from = filters?.from ? dayStart(filters.from) : null;
+  const to = filters?.to ? dayEnd(filters.to) : null;
   const [events, agents] = await Promise.all([
     db.callEvent.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },
-      take: 400,
       include: callEventInclude,
     }),
     agentNames(organizationId),
   ]);
 
-  return groupCallEvents(events, agents)
-    .filter((row) => matchesQuery(row, query))
-    .slice(0, take);
+  const rows = groupCallEvents(events, agents).filter((row) => {
+    if (!matchesQuery(row, query)) return false;
+    if (status && row.status !== status) return false;
+    if (direction && row.direction !== direction) return false;
+    if (from && row.startedAt < from) return false;
+    if (to && row.startedAt > to) return false;
+    return true;
+  });
+  const total = rows.length;
+  const pageCount = Math.max(1, Math.ceil(total / CALL_HISTORY_PAGE_SIZE));
+  const page = Math.min(Math.max(1, Math.floor(filters?.page ?? 1) || 1), pageCount);
+  const calls = rows.slice((page - 1) * CALL_HISTORY_PAGE_SIZE, page * CALL_HISTORY_PAGE_SIZE);
+  return { calls, total, page, pageCount };
 }

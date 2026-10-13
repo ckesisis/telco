@@ -4,8 +4,8 @@ import { listCallHistory, type CallHistoryStatus } from "@/lib/services/call-his
 import { PageHeader, DataTable, EmptyState } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/utils";
+import { CallsFilters, callsHref, type CallListFilters } from "./calls-filters";
 
 const STATUS_LABELS: Record<CallHistoryStatus, string> = {
   ringing: "Χτυπάει",
@@ -21,6 +21,11 @@ const STATUS_CLASS: Record<CallHistoryStatus, string> = {
   completed: "bg-slate-100 text-slate-700",
 };
 
+const DIRECTION_LABELS = {
+  incoming: "Εισερχόμενη",
+  outgoing: "Εξερχόμενη",
+} as const;
+
 function formatDuration(seconds: number | null) {
   if (seconds == null) return "—";
   const mins = Math.floor(seconds / 60);
@@ -28,67 +33,120 @@ function formatDuration(seconds: number | null) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+function pageNumber(value?: string) {
+  const page = Number(value);
+  return Number.isFinite(page) ? page : 1;
+}
+
 export default async function CallsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    status?: string;
+    direction?: string;
+    from?: string;
+    to?: string;
+    page?: string;
+  }>;
 }) {
   const ctx = await requireAuthContext();
-  const { q } = await searchParams;
-  const query = q?.trim() ?? "";
-  const calls = await listCallHistory(ctx.organizationId, { query });
+  const params = await searchParams;
+  const filters: CallListFilters = {
+    q: params.q?.trim() ?? "",
+    status: params.status?.trim() ?? "",
+    direction: params.direction?.trim() ?? "",
+    from: params.from?.trim() ?? "",
+    to: params.to?.trim() ?? "",
+  };
+  const { calls, total, page, pageCount } = await listCallHistory(ctx.organizationId, {
+    query: filters.q || undefined,
+    status: filters.status || undefined,
+    direction: filters.direction || undefined,
+    from: filters.from || undefined,
+    to: filters.to || undefined,
+    page: pageNumber(params.page),
+  });
+  const filtered = Boolean(filters.q || filters.status || filters.direction || filters.from || filters.to);
 
   return (
     <div>
       <PageHeader
         title="Κλήσεις"
         description={
-          query
-            ? `${calls.length} αποτελέσματα για «${query}»`
-            : "Μία εγγραφή ανά κλήση, με την έναρξη και τη λήξη μαζί"
+          filtered
+            ? total === 1
+              ? "1 αποτέλεσμα"
+              : `${total} αποτελέσματα`
+            : `${total} κλήσεις`
         }
       />
-      <form method="get" className="mb-4 flex gap-2">
-        <Input
-          name="q"
-          defaultValue={query}
-          placeholder="Αναζήτηση: αριθμός, γραμμή, agent"
-          className="max-w-md"
-        />
-        <Button type="submit">Αναζήτηση</Button>
-        {query && (
-          <Button asChild variant="outline">
-            <Link href="/calls">Καθαρισμός</Link>
-          </Button>
+      <CallsFilters
+        filters={filters}
+        statuses={(Object.keys(STATUS_LABELS) as CallHistoryStatus[]).map((value) => ({
+          value,
+          label: STATUS_LABELS[value],
+        }))}
+        directions={(Object.keys(DIRECTION_LABELS) as (keyof typeof DIRECTION_LABELS)[]).map(
+          (value) => ({ value, label: DIRECTION_LABELS[value] })
         )}
-      </form>
-      {calls.length === 0 ? (
-        <EmptyState message={query ? "Δεν βρέθηκαν κλήσεις" : "Δεν υπάρχουν κλήσεις"} />
+      />
+      {total === 0 ? (
+        <EmptyState message={filtered ? "Δεν βρέθηκαν κλήσεις" : "Δεν υπάρχουν κλήσεις"} />
       ) : (
-        <DataTable
-          headers={["Ώρα", "Κατεύθυνση", "Αριθμός", "Γραμμή", "Κατάσταση", "Διάρκεια", "Επαφή"]}
-          rows={calls.map((call) => [
-            formatDateTime(call.startedAt),
-            call.direction === "incoming" ? "Εισερχόμενη" : "Εξερχόμενη",
-            call.phone,
-            call.agentName ? `${call.agentName} · ${call.line}` : call.line,
-            <Badge key={`${call.id}-status`} className={STATUS_CLASS[call.status]}>
-              {STATUS_LABELS[call.status]}
-            </Badge>,
-            formatDuration(call.durationSeconds),
-            call.customerId ? (
-              <Link key={`${call.id}-contact`} href={`/customers/${call.customerId}`} className="text-blue-600 hover:underline">
-                {call.contactName ?? "Πελάτης"}
-              </Link>
-            ) : call.leadId ? (
-              <Link key={`${call.id}-contact`} href={`/leads/${call.leadId}`} className="text-blue-600 hover:underline">
-                {call.contactName ?? "Lead"}
-              </Link>
-            ) : (
-              call.contactName ?? "—"
-            ),
-          ])}
-        />
+        <>
+          <DataTable
+            headers={["Ώρα", "Κατεύθυνση", "Αριθμός", "Γραμμή", "Κατάσταση", "Διάρκεια", "Επαφή"]}
+            rows={calls.map((call) => [
+              formatDateTime(call.startedAt),
+              DIRECTION_LABELS[call.direction],
+              call.phone,
+              call.agentName ? `${call.agentName} · ${call.line}` : call.line,
+              <Badge key={`${call.id}-status`} className={STATUS_CLASS[call.status]}>
+                {STATUS_LABELS[call.status]}
+              </Badge>,
+              formatDuration(call.durationSeconds),
+              call.customerId ? (
+                <Link key={`${call.id}-contact`} href={`/customers/${call.customerId}`} className="text-blue-600 hover:underline">
+                  {call.contactName ?? "Πελάτης"}
+                </Link>
+              ) : call.leadId ? (
+                <Link key={`${call.id}-contact`} href={`/leads/${call.leadId}`} className="text-blue-600 hover:underline">
+                  {call.contactName ?? "Lead"}
+                </Link>
+              ) : (
+                call.contactName ?? "—"
+              ),
+            ])}
+          />
+          {pageCount > 1 && (
+            <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
+              <p>
+                Σελίδα {page} από {pageCount}
+              </p>
+              <div className="flex gap-2">
+                {page > 1 ? (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={callsHref(filters, page - 1)}>Προηγούμενη</Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled>
+                    Προηγούμενη
+                  </Button>
+                )}
+                {page < pageCount ? (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={callsHref(filters, page + 1)}>Επόμενη</Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled>
+                    Επόμενη
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

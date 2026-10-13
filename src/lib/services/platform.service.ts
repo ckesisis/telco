@@ -121,6 +121,7 @@ export async function deleteOrganization(organizationId: string) {
     await tx.leadComment.deleteMany({ where: { organizationId } });
     await tx.leadDistributionSource.deleteMany({ where: { organizationId } });
     await tx.leadShare.deleteMany({ where: { organizationId } });
+    await tx.leadCampaignShare.deleteMany({ where: { organizationId } });
     await tx.leadDistribution.deleteMany({ where: { organizationId } });
     await tx.lead.deleteMany({ where: { organizationId } });
     await tx.customer.deleteMany({ where: { organizationId } });

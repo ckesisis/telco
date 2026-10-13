@@ -27,7 +27,8 @@ model User {
   assignedLeads Lead[]    @relation("AssignedLeads")
   orders        Order[]   @relation("OrderSeller")
   logs          Log[]
-  leadShares    LeadShare[]
+  leadShares         LeadShare[]
+  leadCampaignShares LeadCampaignShare[]
   leadComments  LeadComment[]
   targetCalls   CallEvent[]   @relation("CallTarget")
 
@@ -109,6 +110,7 @@ model Organization {
   callEvents              CallEvent[]
   leadDistribution        LeadDistribution?
   leadShares              LeadShare[]
+  leadCampaignShares      LeadCampaignShare[]
   leadDistributionSources LeadDistributionSource[]
   leadComments            LeadComment[]
 
@@ -508,6 +510,20 @@ model LeadShare {
 
   @@unique([organizationId, userId])
   @@map("lead_share")
+}
+
+model LeadCampaignShare {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaignName   String
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  percent        Int
+
+  @@unique([organizationId, campaignName, userId])
+  @@index([organizationId, campaignName])
+  @@map("lead_campaign_share")
 }
 
 model LeadDistributionSource {

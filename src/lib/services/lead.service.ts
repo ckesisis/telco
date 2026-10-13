@@ -157,7 +157,8 @@ async function resolveAssignee(
   organizationId: string,
   ctx: ApiContext,
   sourceId: string,
-  explicit?: string | null
+  explicit?: string | null,
+  campaignName?: string | null
 ) {
   if (explicit) {
     if (!ctx.isAdmin && explicit !== ctx.userId) {
@@ -167,7 +168,11 @@ async function resolveAssignee(
   }
 
   if (ctx.isAdmin || ctx.userId === "api-key") {
-    const distributed = await pickDistributedAgent(organizationId, sourceId);
+    const distributed = await pickDistributedAgent(
+      organizationId,
+      sourceId,
+      campaignName
+    );
     if (distributed) return distributed;
   }
 
@@ -230,7 +235,8 @@ export async function createLead(
         organizationId,
         ctx,
         data.sourceId,
-        data.assignedUserId
+        data.assignedUserId,
+        attribution.campaignName
       ),
       externalId: data.externalId,
       payload: data.payload ? (data.payload as object) : undefined,

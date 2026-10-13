@@ -15,6 +15,7 @@ export const PUT = withAdmin(async (req, ctx) => {
       enabled: Boolean(body.enabled),
       sourceIds: Array.isArray(body.sourceIds) ? body.sourceIds : [],
       shares: Array.isArray(body.shares) ? body.shares : [],
+      campaigns: Array.isArray(body.campaigns) ? body.campaigns : [],
     });
     return jsonOk(await getLeadDistribution(ctx.organizationId));
   } catch (err) {

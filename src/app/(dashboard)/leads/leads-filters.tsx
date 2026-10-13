@@ -24,7 +24,12 @@ export type LeadFilters = {
 const controlClass =
   "h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400";
 
-export function leadsHref(filters: LeadFilters, page = 1) {
+export function leadsHref(
+  filters: LeadFilters,
+  page = 1,
+  path = "/leads",
+  extra?: Record<string, string>
+) {
   const params = new URLSearchParams();
   if (filters.q) params.set("q", filters.q);
   for (const id of filters.status) params.append("status", id);
@@ -32,8 +37,11 @@ export function leadsHref(filters: LeadFilters, page = 1) {
   if (filters.to) params.set("to", filters.to);
   if (filters.campaign) params.set("campaign", filters.campaign);
   if (page > 1) params.set("page", String(page));
+  for (const [key, value] of Object.entries(extra ?? {})) {
+    if (value) params.set(key, value);
+  }
   const query = params.toString();
-  return query ? `/leads?${query}` : "/leads";
+  return query ? `${path}?${query}` : path;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -62,12 +70,18 @@ export function LeadsFilters({
   statuses,
   campaigns,
   actions,
+  path = "/leads",
+  extra,
 }: {
   filters: LeadFilters;
   statuses: { id: string; name: string; color: string }[];
   campaigns: string[];
   actions?: React.ReactNode;
+  path?: string;
+  extra?: Record<string, string>;
 }) {
+  const href = (next: LeadFilters) => leadsHref(next, 1, path, extra);
+  const clearHref = leadsHref({ q: "", status: [], from: "", to: "", campaign: "" }, 1, path, extra);
   const [selected, setSelected] = useState(filters.status);
   const selectedKey = filters.status.join(",");
   const [seenKey, setSeenKey] = useState(selectedKey);
@@ -88,6 +102,7 @@ export function LeadsFilters({
 
   return (
     <form
+      action={path}
       method="get"
       className="mb-4 rounded-xl border border-slate-200 bg-white p-4"
       onSubmit={(event) => {
@@ -101,6 +116,9 @@ export function LeadsFilters({
         }
       }}
     >
+      {Object.entries(extra ?? {}).map(([key, value]) =>
+        value ? <input key={key} type="hidden" name={key} value={value} /> : null
+      )}
       <div className="flex items-end gap-2">
         <div className="min-w-0 flex-1">
           <Field label="Αναζήτηση">
@@ -174,26 +192,26 @@ export function LeadsFilters({
       {hasFilters && (
         <div className="mt-3 flex flex-wrap gap-2">
           {filters.q && (
-            <Chip href={leadsHref({ ...filters, q: "" })}>Αναζήτηση: {filters.q}</Chip>
+            <Chip href={href({ ...filters, q: "" })}>Αναζήτηση: {filters.q}</Chip>
           )}
           {filters.status.map((id) => {
             const item = statuses.find((stage) => stage.id === id);
             if (!item) return null;
             return (
-              <Chip key={id} href={leadsHref({ ...filters, status: filters.status.filter((value) => value !== id) })}>
+              <Chip key={id} href={href({ ...filters, status: filters.status.filter((value) => value !== id) })}>
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
                 {item.name}
               </Chip>
             );
           })}
           {filters.from && (
-            <Chip href={leadsHref({ ...filters, from: "" })}>Από {labelDate(filters.from)}</Chip>
+            <Chip href={href({ ...filters, from: "" })}>Από {labelDate(filters.from)}</Chip>
           )}
           {filters.to && (
-            <Chip href={leadsHref({ ...filters, to: "" })}>Έως {labelDate(filters.to)}</Chip>
+            <Chip href={href({ ...filters, to: "" })}>Έως {labelDate(filters.to)}</Chip>
           )}
           {filters.campaign && (
-            <Chip href={leadsHref({ ...filters, campaign: "" })}>{filters.campaign}</Chip>
+            <Chip href={href({ ...filters, campaign: "" })}>{filters.campaign}</Chip>
           )}
         </div>
       )}
@@ -201,7 +219,7 @@ export function LeadsFilters({
       <div className="mt-3 flex justify-end gap-2">
         {hasFilters && (
           <Button asChild variant="outline">
-            <Link href="/leads">Καθαρισμός</Link>
+            <Link href={clearHref}>Καθαρισμός</Link>
           </Button>
         )}
         <Button type="submit">Εφαρμογή</Button>

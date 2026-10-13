@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CampaignShareFields, type CampaignDraft } from "./campaign-share-fields";
 
 type Settings = {
   enabled: boolean;
   sourceIds: string[];
   shares: { userId: string; percent: number }[];
+  campaigns: { campaignName: string; shares: { userId: string; percent: number }[] }[];
+  knownCampaigns: string[];
   sources: { id: string; name: string }[];
   agents: { userId: string; name: string; salesCode: string | null }[];
 };
@@ -31,6 +34,19 @@ export function LeadDistributionSettings({ settings }: { settings: Settings }) {
         ),
       ])
     )
+  );
+  const [campaigns, setCampaigns] = useState<CampaignDraft[]>(() =>
+    settings.campaigns.map((campaign) => ({
+      name: campaign.campaignName,
+      percents: Object.fromEntries(
+        settings.agents.map((agent) => [
+          agent.userId,
+          String(
+            campaign.shares.find((share) => share.userId === agent.userId)?.percent ?? 0
+          ),
+        ])
+      ),
+    }))
   );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -63,6 +79,13 @@ export function LeadDistributionSettings({ settings }: { settings: Settings }) {
           userId: agent.userId,
           percent: Number(percents[agent.userId]) || 0,
         })),
+        campaigns: campaigns.map((campaign) => ({
+          campaignName: campaign.name,
+          shares: settings.agents.map((agent) => ({
+            userId: agent.userId,
+            percent: Number(campaign.percents[agent.userId]) || 0,
+          })),
+        })),
       }),
     });
 
@@ -81,7 +104,7 @@ export function LeadDistributionSettings({ settings }: { settings: Settings }) {
     <div>
       <PageHeader
         title="Μοίρασμα leads"
-        description="Μοιράστε τα εισερχόμενα leads κάθε ημέρας στους sales agents με ποσοστά"
+        description="Μοιράστε τα εισερχόμενα leads κάθε ημέρας. Οι καμπάνιες Facebook μπορούν να έχουν δικά τους ποσοστά."
       />
       <form onSubmit={handleSave} className="space-y-6">
         <Card>
@@ -125,7 +148,7 @@ export function LeadDistributionSettings({ settings }: { settings: Settings }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Sales agents</CardTitle>
+            <CardTitle>Προεπιλεγμένο μοίρασμα</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {settings.agents.length === 0 ? (
@@ -167,6 +190,13 @@ export function LeadDistributionSettings({ settings }: { settings: Settings }) {
             </p>
           </CardContent>
         </Card>
+
+        <CampaignShareFields
+          agents={settings.agents}
+          knownCampaigns={settings.knownCampaigns}
+          campaigns={campaigns}
+          onChange={setCampaigns}
+        />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         <Button type="submit" disabled={saving}>
