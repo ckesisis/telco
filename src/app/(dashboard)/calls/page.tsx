@@ -5,7 +5,8 @@ import { PageHeader, DataTable, EmptyState } from "@/components/shared/page-head
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
-import { CallsFilters, callsHref, type CallListFilters } from "./calls-filters";
+import { CallsFilters } from "./calls-filters";
+import { callsHref, type CallListFilters } from "./calls-href";
 
 const STATUS_LABELS: Record<CallHistoryStatus, string> = {
   ringing: "Χτυπάει",
