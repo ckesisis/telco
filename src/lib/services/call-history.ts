@@ -265,6 +265,7 @@ function historyDirection(value?: string): CallHistoryRow["direction"] | undefin
 
 export async function listCallHistory(
   organizationId: string,
+  viewer: { userId: string; isAdmin: boolean },
   filters?: CallHistoryListFilters
 ) {
   const query = filters?.query?.trim() ?? "";
@@ -282,6 +283,8 @@ export async function listCallHistory(
   ]);
 
   const rows = groupCallEvents(events, agents).filter((row) => {
+    // Non-admins only see calls made on their own line.
+    if (!viewer.isAdmin && row.agentUserId !== viewer.userId) return false;
     if (!matchesQuery(row, query)) return false;
     if (status && row.status !== status) return false;
     if (direction && row.direction !== direction) return false;

@@ -60,7 +60,7 @@ export default async function CallsPage({
     from: params.from?.trim() ?? "",
     to: params.to?.trim() ?? "",
   };
-  const { calls, total, page, pageCount } = await listCallHistory(ctx.organizationId, {
+  const { calls, total, page, pageCount } = await listCallHistory(ctx.organizationId, ctx, {
     query: filters.q || undefined,
     status: filters.status || undefined,
     direction: filters.direction || undefined,
