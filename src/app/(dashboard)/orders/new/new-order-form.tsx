@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CustomerCreateForm } from "@/components/customers/customer-create-form";
 import { CustomerEditForm } from "@/components/customers/customer-edit-form";
@@ -129,6 +129,9 @@ export default function NewOrderForm({
   function updateApp(index: number, field: keyof ApplicationFormState, value: string) {
     const next = [...applications];
     const current = { ...next[index], [field]: value };
+    if (field === "productLine" && value !== next[index].productLine) {
+      current.offerId = "";
+    }
     if (field === "applicationType" && value === "new_number") {
       current.portingNumber = "";
       current.previousProvider = "";
@@ -138,6 +141,18 @@ export default function NewOrderForm({
     next[index] = current;
     setApplications(next);
     clearFieldError(applicationFieldKey(index, field));
+  }
+
+  function addApplication() {
+    setApplications((prev) => [...prev, emptyApplication()]);
+  }
+
+  function removeApplication(index: number) {
+    setApplications((prev) => prev.filter((_, i) => i !== index));
+    // Error keys are index-based, so drop all application errors after a removal.
+    setFieldErrors((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith("applications.")))
+    );
   }
 
   function validateStep1(): FieldErrors {
@@ -469,6 +484,20 @@ export default function NewOrderForm({
             <>
               {applications.map((app, i) => (
                 <div key={i} className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Αίτηση {i + 1}</p>
+                    {applications.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeApplication(i)}
+                        aria-label={`Αφαίρεση αίτησης ${i + 1}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <Label>Γραμμή Προϊόντος</Label>
                     <Select value={app.productLine} onValueChange={(v) => updateApp(i, "productLine", v)}>
@@ -550,6 +579,10 @@ export default function NewOrderForm({
                   )}
                 </div>
               ))}
+              <Button type="button" variant="outline" onClick={addApplication}>
+                <Plus className="h-4 w-4" />
+                Προσθήκη αίτησης
+              </Button>
               <FieldError message={fieldErrors._form} />
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => { setFieldErrors({}); setStep(2); }}>Πίσω</Button>
