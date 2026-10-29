@@ -88,7 +88,11 @@ export async function createOrder(
     sourceId?: string | null;
     notes?: string | null;
     leadId?: string | null;
-    shippingAddress: {
+    contractDelivery?: "courier" | "esign";
+    esignChannel?: "email" | "sms" | null;
+    esignEmail?: string | null;
+    esignPhone?: string | null;
+    shippingAddress?: {
       street: string;
       number?: string | null;
       city: string;
@@ -96,24 +100,50 @@ export async function createOrder(
       region?: string | null;
       floor?: string | null;
       notes?: string | null;
-    };
+    } | null;
     applications: ApplicationInput[];
   }
 ) {
+  const contractDelivery = data.contractDelivery === "esign" ? "esign" : "courier";
+  const esignChannel =
+    contractDelivery === "esign" ? (data.esignChannel === "sms" ? "sms" : "email") : null;
+  const esignEmail = esignChannel === "email" ? data.esignEmail?.trim() || null : null;
+  const esignPhone = esignChannel === "sms" ? data.esignPhone?.trim() || null : null;
+  if (esignChannel === "email") {
+    if (!esignEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(esignEmail)) {
+      throw new Error("Απαιτείται έγκυρο email για αποστολή eSign");
+    }
+  } else if (esignChannel === "sms") {
+    if (!esignPhone || !/^\+?\d{10,15}$/.test(esignPhone.replace(/[\s-]/g, ""))) {
+      throw new Error("Απαιτείται έγκυρο κινητό για αποστολή eSign");
+    }
+  } else if (
+    !data.shippingAddress?.street?.trim() ||
+    !data.shippingAddress.city?.trim() ||
+    !data.shippingAddress.postalCode?.trim()
+  ) {
+    throw new Error("Απαιτείται διεύθυνση αποστολής για courier");
+  }
+
   const defaultStatusId = await getDefaultAppStatusId(organizationId);
   const orderRef = await generateOrderRef(organizationId);
 
   return db.$transaction(async (tx) => {
-    const shippingAddress = await tx.shippingAddress.create({
-      data: data.shippingAddress,
-    });
+    const shippingAddress =
+      contractDelivery === "courier" && data.shippingAddress
+        ? await tx.shippingAddress.create({ data: data.shippingAddress })
+        : null;
 
     const order = await tx.order.create({
       data: {
         organizationId,
         orderRef,
         customerId: data.customerId,
-        shippingAddressId: shippingAddress.id,
+        shippingAddressId: shippingAddress?.id ?? null,
+        contractDelivery,
+        esignChannel,
+        esignEmail,
+        esignPhone,
         sourceId: data.sourceId,
         sellerId: ctx.userId,
         salesCode: ctx.salesCode,

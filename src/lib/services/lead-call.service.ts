@@ -65,7 +65,9 @@ function queueWhere(
   return {
     organizationId,
     ...(ctx.isAdmin ? {} : { assignedUserId: ctx.userId }),
+    // The call queue only works on new leads (the default "Νέα leads" stage).
     status: {
+      isDefault: true,
       isClosed: false,
       isConverted: false,
       ...(statuses.length > 0 ? { id: { in: statuses } } : {}),

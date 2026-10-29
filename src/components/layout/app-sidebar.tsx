@@ -35,6 +35,7 @@ const settingsItems = [
   { href: "/settings/sources", label: "Πηγές" },
   { href: "/settings/app-statuses", label: "Καταστάσεις" },
   { href: "/settings/lead-statuses", label: "Καταστάσεις leads" },
+  { href: "/settings/prospect-services", label: "Υπηρεσίες prospecting" },
   { href: "/settings/users", label: "Χρήστες" },
   { href: "/settings/lead-distribution", label: "Μοίρασμα leads" },
   { href: "/settings/organization", label: "Οργανισμός" },

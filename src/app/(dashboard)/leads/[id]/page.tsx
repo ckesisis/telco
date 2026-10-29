@@ -14,6 +14,9 @@ import { getMemberProfiles } from "@/lib/services/catalog.service";
 import { LeadActions } from "./lead-actions";
 import { LeadAssignee } from "../lead-assignee";
 import { LeadCallForm } from "./lead-call-form";
+import { LeadProspectingForm, type ProspectAnswer } from "./lead-prospecting-form";
+import { listProspectServices } from "@/lib/services/prospecting.service";
+import { formatMonth, toMonthValue } from "@/lib/prospecting";
 
 const CALL_STATUS_LABELS: Record<CallHistoryStatus, string> = {
   ringing: "Χτυπάει",
@@ -52,9 +55,10 @@ export default async function LeadDetailPage({
 }) {
   const { id } = await params;
   const ctx = await requireAuthContext();
-  const [lead, stages, members] = await Promise.all([
+  const [lead, stages, prospectServices, members] = await Promise.all([
     getLead(ctx.organizationId, id),
     listLeadStages(ctx.organizationId),
+    listProspectServices(ctx.organizationId),
     ctx.isAdmin ? getMemberProfiles(ctx.organizationId) : Promise.resolve([]),
   ]);
   if (!lead || !canAccessLead(ctx, lead)) notFound();
@@ -76,13 +80,39 @@ export default async function LeadDetailPage({
   const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Χωρίς όνομα";
   const showAttribution = isMetaChannel(lead.source.channel);
 
+  // Enabled services, plus disabled ones that already have an answer on this lead.
+  const prospects = prospectServices
+    .map((service) => ({
+      service,
+      contract: lead.prospectContracts.find((item) => item.serviceId === service.id),
+    }))
+    .filter(({ service, contract }) => service.enabled || contract);
+  const prospectAnswers: ProspectAnswer[] = prospects.map(({ service, contract }) => ({
+    serviceId: service.id,
+    serviceName: service.name,
+    hasContract: contract?.hasContract ?? null,
+    provider: contract?.provider ?? "",
+    expiresMonth: toMonthValue(contract?.expiresAt),
+    monthlyAmount: contract?.monthlyAmount?.toString() ?? "",
+    notes: contract?.notes ?? "",
+  }));
+  const prospectingForm = (
+    <LeadProspectingForm
+      leadId={lead.id}
+      answers={prospectAnswers}
+      notes={lead.prospectingNotes ?? ""}
+    />
+  );
+
   return (
     <div>
       <PageHeader
         title={name}
         description={lead.source.name}
         action={
-          !lead.status.isConverted && (
+          lead.status.isConverted ? (
+            prospectingForm
+          ) : (
             <div className="flex gap-2">
               <LeadCallForm
                 leadId={lead.id}
@@ -90,6 +120,7 @@ export default async function LeadDetailPage({
                 callbackAt={lead.callbackAt?.toISOString() ?? null}
                 stages={stages.filter((stage) => !stage.isConverted)}
               />
+              {prospectingForm}
               <LeadActions leadId={lead.id} />
               <Button asChild variant="outline">
                 <Link href={`/orders/new?leadId=${lead.id}`}>Δημιουργία Παραγγελίας</Link>
@@ -202,6 +233,60 @@ export default async function LeadDetailPage({
                   <p className="mt-1 whitespace-pre-wrap">{comment.body}</p>
                 </div>
               ))
+            )}
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Prospecting</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {prospects.length === 0 && !lead.prospectingNotes ? (
+              <p className="text-sm text-slate-500">Δεν υπάρχουν υπηρεσίες prospecting</p>
+            ) : (
+              <>
+              <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                {prospects.map(({ service, contract }) => (
+                  <Fact
+                    key={service.id}
+                    label={service.name}
+                    value={
+                      !contract ? (
+                        <span className="text-slate-400">—</span>
+                      ) : !contract.hasContract ? (
+                        <>
+                          <span>Χωρίς συμβόλαιο</span>
+                          {contract.notes && (
+                            <p className="mt-0.5 text-xs font-normal text-slate-500">{contract.notes}</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span>
+                            {[
+                              contract.provider ?? "Άγνωστος πάροχος",
+                              contract.expiresAt && `λήγει ${formatMonth(contract.expiresAt)}`,
+                              contract.monthlyAmount && `${contract.monthlyAmount.toFixed(2)}€`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                          {contract.notes && (
+                            <p className="mt-0.5 text-xs font-normal text-slate-500">{contract.notes}</p>
+                          )}
+                        </>
+                      )
+                    }
+                  />
+                ))}
+              </div>
+              {lead.prospectingNotes && (
+                <div className="mt-4 border-t border-slate-100 pt-4 text-sm">
+                  <p className="text-xs text-slate-500">Γενικές σημειώσεις</p>
+                  <p className="mt-1 whitespace-pre-wrap">{lead.prospectingNotes}</p>
+                </div>
+              )}
+              </>
             )}
           </CardContent>
         </Card>

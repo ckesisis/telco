@@ -6,6 +6,13 @@ import { ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PREVIOUS_PROVIDERS } from "@/config/application-types";
+
+function labelMonth(value: string) {
+  const [year, month] = value.split("-");
+  if (!year || !month) return value;
+  return `${month}/${year}`;
+}
 
 function labelDate(value: string) {
   const [year, month, day] = value.split("-");
@@ -19,6 +26,25 @@ export type LeadFilters = {
   from: string;
   to: string;
   campaign: string;
+  // Prospecting (Leads list only)
+  service?: string;
+  contract?: string;
+  provider?: string;
+  expFrom?: string;
+  expTo?: string;
+};
+
+export const EMPTY_LEAD_FILTERS: LeadFilters = {
+  q: "",
+  status: [],
+  from: "",
+  to: "",
+  campaign: "",
+  service: "",
+  contract: "",
+  provider: "",
+  expFrom: "",
+  expTo: "",
 };
 
 const controlClass =
@@ -36,6 +62,11 @@ export function leadsHref(
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   if (filters.campaign) params.set("campaign", filters.campaign);
+  if (filters.service) params.set("service", filters.service);
+  if (filters.contract) params.set("contract", filters.contract);
+  if (filters.provider) params.set("provider", filters.provider);
+  if (filters.expFrom) params.set("expFrom", filters.expFrom);
+  if (filters.expTo) params.set("expTo", filters.expTo);
   if (page > 1) params.set("page", String(page));
   for (const [key, value] of Object.entries(extra ?? {})) {
     if (value) params.set(key, value);
@@ -69,6 +100,7 @@ export function LeadsFilters({
   filters,
   statuses,
   campaigns,
+  prospectServices,
   actions,
   path = "/leads",
   extra,
@@ -76,12 +108,14 @@ export function LeadsFilters({
   filters: LeadFilters;
   statuses: { id: string; name: string; color: string }[];
   campaigns: string[];
+  /** When set, shows the prospecting (contract expiry) filters. */
+  prospectServices?: { id: string; name: string }[];
   actions?: React.ReactNode;
   path?: string;
   extra?: Record<string, string>;
 }) {
   const href = (next: LeadFilters) => leadsHref(next, 1, path, extra);
-  const clearHref = leadsHref({ q: "", status: [], from: "", to: "", campaign: "" }, 1, path, extra);
+  const clearHref = leadsHref(EMPTY_LEAD_FILTERS, 1, path, extra);
   const [selected, setSelected] = useState(filters.status);
   const selectedKey = filters.status.join(",");
   const [seenKey, setSeenKey] = useState(selectedKey);
@@ -97,8 +131,18 @@ export function LeadsFilters({
         ? selectedStatuses[0].name
         : `${selectedStatuses.length} καταστάσεις`;
   const hasFilters = Boolean(
-    filters.q || filters.status.length > 0 || filters.from || filters.to || filters.campaign
+    filters.q ||
+      filters.status.length > 0 ||
+      filters.from ||
+      filters.to ||
+      filters.campaign ||
+      filters.service ||
+      filters.contract ||
+      filters.provider ||
+      filters.expFrom ||
+      filters.expTo
   );
+  const serviceName = prospectServices?.find((item) => item.id === filters.service)?.name;
 
   return (
     <form
@@ -189,6 +233,49 @@ export function LeadsFilters({
         </Field>
       </div>
 
+      {prospectServices && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Prospecting
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <Field label="Υπηρεσία">
+              <select name="service" defaultValue={filters.service ?? ""} className={controlClass}>
+                <option value="">Όλες</option>
+                {prospectServices.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Συμβόλαιο">
+              <select name="contract" defaultValue={filters.contract ?? ""} className={controlClass}>
+                <option value="">Όλα</option>
+                <option value="yes">Έχει συμβόλαιο</option>
+                <option value="no">Χωρίς συμβόλαιο</option>
+              </select>
+            </Field>
+            <Field label="Πάροχος">
+              <select name="provider" defaultValue={filters.provider ?? ""} className={controlClass}>
+                <option value="">Όλοι</option>
+                {PREVIOUS_PROVIDERS.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Λήξη από (μήνας)">
+              <Input type="month" name="expFrom" defaultValue={filters.expFrom ?? ""} />
+            </Field>
+            <Field label="Λήξη έως (μήνας)">
+              <Input type="month" name="expTo" defaultValue={filters.expTo ?? ""} />
+            </Field>
+          </div>
+        </div>
+      )}
+
       {hasFilters && (
         <div className="mt-3 flex flex-wrap gap-2">
           {filters.q && (
@@ -212,6 +299,29 @@ export function LeadsFilters({
           )}
           {filters.campaign && (
             <Chip href={href({ ...filters, campaign: "" })}>{filters.campaign}</Chip>
+          )}
+          {filters.service && (
+            <Chip href={href({ ...filters, service: "" })}>
+              Υπηρεσία: {serviceName ?? filters.service}
+            </Chip>
+          )}
+          {filters.contract && (
+            <Chip href={href({ ...filters, contract: "" })}>
+              {filters.contract === "no" ? "Χωρίς συμβόλαιο" : "Έχει συμβόλαιο"}
+            </Chip>
+          )}
+          {filters.provider && (
+            <Chip href={href({ ...filters, provider: "" })}>Πάροχος: {filters.provider}</Chip>
+          )}
+          {filters.expFrom && (
+            <Chip href={href({ ...filters, expFrom: "" })}>
+              Λήξη από {labelMonth(filters.expFrom)}
+            </Chip>
+          )}
+          {filters.expTo && (
+            <Chip href={href({ ...filters, expTo: "" })}>
+              Λήξη έως {labelMonth(filters.expTo)}
+            </Chip>
           )}
         </div>
       )}

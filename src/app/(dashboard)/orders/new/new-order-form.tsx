@@ -58,6 +58,22 @@ const emptyApplication = (): ApplicationFormState => ({
 });
 
 type FieldErrors = Record<string, string>;
+type ContractDelivery = "courier" | "esign";
+type ESignChannel = "email" | "sms";
+
+const CONTRACT_DELIVERY_OPTIONS: { value: ContractDelivery; label: string; description: string }[] = [
+  { value: "courier", label: "Courier", description: "Αποστολή συμβολαίου στη διεύθυνση" },
+  { value: "esign", label: "eSign", description: "Ηλεκτρονική υπογραφή μέσω email ή SMS" },
+];
+
+const ESIGN_CHANNEL_OPTIONS: { value: ESignChannel; label: string }[] = [
+  { value: "email", label: "Email" },
+  { value: "sms", label: "SMS" },
+];
+
+const PHONE_PATTERN = /^\+?\d{10,15}$/;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -93,6 +109,10 @@ export default function NewOrderForm({
   const [address, setAddress] = useState({
     street: "", number: "", city: "", postalCode: "", region: "",
   });
+  const [contractDelivery, setContractDelivery] = useState<ContractDelivery>("courier");
+  const [esignChannel, setEsignChannel] = useState<ESignChannel>("email");
+  const [esignEmail, setEsignEmail] = useState("");
+  const [esignPhone, setEsignPhone] = useState("");
   const [applications, setApplications] = useState<ApplicationFormState[]>([
     emptyApplication(),
   ]);
@@ -129,6 +149,17 @@ export default function NewOrderForm({
 
   function validateStep2(): FieldErrors {
     const errors: FieldErrors = {};
+    if (contractDelivery === "esign") {
+      if (esignChannel === "email") {
+        if (!esignEmail.trim()) errors.esignEmail = "Συμπληρώστε email";
+        else if (!EMAIL_PATTERN.test(esignEmail.trim())) errors.esignEmail = "Μη έγκυρο email";
+      } else {
+        const phone = esignPhone.replace(/[\s-]/g, "");
+        if (!phone) errors.esignPhone = "Συμπληρώστε κινητό";
+        else if (!PHONE_PATTERN.test(phone)) errors.esignPhone = "Μη έγκυρος αριθμός";
+      }
+      return errors;
+    }
     if (!address.street.trim()) errors.street = "Συμπληρώστε οδό";
     if (!address.city.trim()) errors.city = "Συμπληρώστε πόλη";
     if (!address.postalCode.trim()) errors.postalCode = "Συμπληρώστε Τ.Κ.";
@@ -178,6 +209,9 @@ export default function NewOrderForm({
       if (customer && addressEmpty && customer.homeStreet) {
         setAddress(customerHomeToOrderAddress(customer));
       }
+      if (customer && !esignPhone.trim()) {
+        setEsignPhone(customer.contactPhone ?? "");
+      }
     }
 
     setFieldErrors({});
@@ -202,7 +236,13 @@ export default function NewOrderForm({
         customerId,
         sourceId,
         leadId: preselectedLeadId,
-        shippingAddress: address,
+        contractDelivery,
+        esignChannel: contractDelivery === "esign" ? esignChannel : null,
+        esignEmail:
+          contractDelivery === "esign" && esignChannel === "email" ? esignEmail.trim() : null,
+        esignPhone:
+          contractDelivery === "esign" && esignChannel === "sms" ? esignPhone.trim() : null,
+        shippingAddress: contractDelivery === "courier" ? address : null,
         applications: applications.map((a) => ({
           productLine: a.productLine,
           applicationType: a.productLine === "prepaid_mobile" ? a.applicationType : null,
@@ -293,6 +333,88 @@ export default function NewOrderForm({
 
           {step === 2 && (
             <>
+              <div className="space-y-2">
+                <Label>Αποστολή συμβολαίου</Label>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup">
+                  {CONTRACT_DELIVERY_OPTIONS.map((option) => {
+                    const selected = contractDelivery === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setContractDelivery(option.value);
+                          setFieldErrors({});
+                        }}
+                        className={`rounded-lg border p-3 text-left transition-colors ${
+                          selected
+                            ? "border-slate-900 bg-slate-50 ring-1 ring-slate-900"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <p className="text-sm font-medium">{option.label}</p>
+                        <p className="text-xs text-slate-500">{option.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {contractDelivery === "esign" ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Αποστολή eSign μέσω</Label>
+                    <Select
+                      value={esignChannel}
+                      onValueChange={(v) => {
+                        setEsignChannel(v as ESignChannel);
+                        setFieldErrors({});
+                      }}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ESIGN_CHANNEL_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {esignChannel === "email" ? (
+                    <div className="space-y-2">
+                      <Label>Email για eSign *</Label>
+                      <Input
+                        type="email"
+                        value={esignEmail}
+                        onChange={(e) => {
+                          setEsignEmail(e.target.value);
+                          clearFieldError("esignEmail");
+                        }}
+                        placeholder="customer@example.com"
+                        required
+                      />
+                      <FieldError message={fieldErrors.esignEmail} />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Κινητό για eSign *</Label>
+                      <Input
+                        type="tel"
+                        value={esignPhone}
+                        onChange={(e) => {
+                          setEsignPhone(e.target.value);
+                          clearFieldError("esignPhone");
+                        }}
+                        placeholder="69XXXXXXXX"
+                        required
+                      />
+                      <FieldError message={fieldErrors.esignPhone} />
+                    </div>
+                  )}
+                </div>
+              ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Οδός *</Label>
@@ -335,6 +457,7 @@ export default function NewOrderForm({
                   <FieldError message={fieldErrors.postalCode} />
                 </div>
               </div>
+              )}
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => { setFieldErrors({}); setStep(1); }}>Πίσω</Button>
                 <Button onClick={() => goToStep(3)}>Επόμενο</Button>

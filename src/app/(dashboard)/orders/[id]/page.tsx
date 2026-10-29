@@ -38,9 +38,21 @@ export default async function OrderDetailPage({
               {order.customer.firstName} {order.customer.lastName}
             </Link>
             <p>{order.customer.contactPhone}</p>
-            <p className="text-slate-500">
-              {order.shippingAddress.street} {order.shippingAddress.number}, {order.shippingAddress.city} {order.shippingAddress.postalCode}
+            <p>
+              <span className="text-slate-500">Αποστολή συμβολαίου:</span>{" "}
+              {order.contractDelivery === "esign"
+                ? `eSign (${order.esignChannel === "sms" ? "SMS" : "Email"})`
+                : "Courier"}
             </p>
+            {order.contractDelivery === "esign" ? (
+              <p className="text-slate-500">
+                {(order.esignChannel === "sms" ? order.esignPhone : order.esignEmail) ?? "—"}
+              </p>
+            ) : order.shippingAddress ? (
+              <p className="text-slate-500">
+                {order.shippingAddress.street} {order.shippingAddress.number}, {order.shippingAddress.city} {order.shippingAddress.postalCode}
+              </p>
+            ) : null}
             <p><span className="text-slate-500">Πηγή:</span> {order.source?.name ?? "—"}</p>
             <p><span className="text-slate-500">Ημ/νία:</span> {formatDateTime(order.createdAt)}</p>
           </CardContent>

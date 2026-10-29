@@ -8,6 +8,7 @@ import {
   readLeadAttribution,
 } from "@/lib/lead-attribution";
 import { readPreviousProvider } from "@/config/application-types";
+import { monthRange } from "@/lib/prospecting";
 import {
   getConvertedLeadStageId,
   getDefaultLeadStageId,
@@ -19,6 +20,9 @@ const leadListInclude = {
   assignedUser: true,
   customer: true,
   order: true,
+  prospectContracts: {
+    include: { service: { select: { id: true, name: true, sortOrder: true } } },
+  },
 } as const;
 
 export const LEAD_PAGE_SIZE = 25;
@@ -29,6 +33,12 @@ type LeadListFilters = {
   campaign?: string;
   from?: string;
   to?: string;
+  service?: string;
+  /** "yes" = has a contract, "no" = said they have none. */
+  contract?: string;
+  provider?: string;
+  expFrom?: string;
+  expTo?: string;
 };
 
 function statusIds(status?: string | string[]) {
@@ -69,6 +79,7 @@ function leadListWhere(organizationId: string, ctx: ApiContext, filters?: LeadLi
             { previousProvider: { contains: search, mode: "insensitive" as const } },
             { campaignName: { contains: search, mode: "insensitive" as const } },
             { notes: { contains: search, mode: "insensitive" as const } },
+            { prospectingNotes: { contains: search, mode: "insensitive" as const } },
             { source: { name: { contains: search, mode: "insensitive" as const } } },
             { status: { name: { contains: search, mode: "insensitive" as const } } },
             { assignedUser: { name: { contains: search, mode: "insensitive" as const } } },
@@ -76,6 +87,17 @@ function leadListWhere(organizationId: string, ctx: ApiContext, filters?: LeadLi
         },
       ]
     : [];
+  const expires = monthRange(filters?.expFrom, filters?.expTo);
+  const contract = {
+    ...(filters?.service && { serviceId: filters.service }),
+    ...(filters?.contract === "yes" && { hasContract: true }),
+    ...(filters?.contract === "no" && { hasContract: false }),
+    ...(filters?.provider && { provider: filters.provider, hasContract: true }),
+    ...(expires && { expiresAt: expires, hasContract: true }),
+  };
+  const prospecting =
+    Object.keys(contract).length > 0 ? [{ prospectContracts: { some: contract } }] : [];
+  const and = [...access, ...match, ...prospecting];
 
   return {
     organizationId,
@@ -87,7 +109,7 @@ function leadListWhere(organizationId: string, ctx: ApiContext, filters?: LeadLi
         ...(to && { lte: to }),
       },
     }),
-    ...(access.length + match.length > 0 ? { AND: [...access, ...match] } : {}),
+    ...(and.length > 0 ? { AND: and } : {}),
   };
 }
 
@@ -149,6 +171,7 @@ export async function getLead(organizationId: string, id: string) {
         include: { user: { select: { id: true, name: true } } },
         orderBy: { createdAt: "desc" as const },
       },
+      prospectContracts: { include: { service: true } },
     },
   });
 }

@@ -1,14 +1,12 @@
 import { withAuth, jsonOk } from "@/lib/api/handler";
-import { getDashboardStats } from "@/lib/services/reporting.service";
-import { startOfMonth, endOfMonth, parseISO } from "date-fns";
+import { getReport } from "@/lib/services/reporting.service";
+import { parseReportFilters, searchParamsToRecord } from "@/lib/reporting/filters";
 
+/**
+ * GET /api/v1/reporting?preset=month|today|week|last_month|last_30|custom
+ *   &from=YYYY-MM-DD&to=YYYY-MM-DD&agentId=&sourceId=&campaign=&productLine=
+ */
 export const GET = withAuth(async (req, ctx) => {
-  const fromParam = req.nextUrl.searchParams.get("from");
-  const toParam = req.nextUrl.searchParams.get("to");
-
-  const from = fromParam ? parseISO(fromParam) : startOfMonth(new Date());
-  const to = toParam ? parseISO(toParam) : endOfMonth(new Date());
-
-  const stats = await getDashboardStats(ctx.organizationId, ctx, from, to);
-  return jsonOk(stats);
+  const filters = parseReportFilters(searchParamsToRecord(req.nextUrl.searchParams), ctx);
+  return jsonOk(await getReport(ctx, filters));
 });

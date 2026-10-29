@@ -7,6 +7,7 @@ export const LEAD_COLUMNS = [
   { id: "createdAt", label: "Ημ/νία", defaultVisible: true },
   { id: "email", label: "Email", defaultVisible: false },
   { id: "previousProvider", label: "Προηγούμενος Πάροχος", defaultVisible: true },
+  { id: "contractExpiry", label: "Λήξη συμβολαίου", defaultVisible: true },
   { id: "agent", label: "Agent", defaultVisible: false },
   { id: "callbackAt", label: "Επανάκληση", defaultVisible: false },
   { id: "notes", label: "Σημειώσεις", defaultVisible: false },

@@ -10,6 +10,7 @@ export type CallHistoryRow = {
   phone: string;
   line: string;
   agentName: string | null;
+  agentUserId: string | null;
   status: CallHistoryStatus;
   durationSeconds: number | null;
   contactName: string | null;
@@ -107,15 +108,17 @@ const callEventInclude = {
   lead: { select: { id: true, firstName: true, lastName: true } },
 } as const;
 
+type LineAgent = { userId: string; name: string | null };
+
 async function agentNames(organizationId: string) {
   const profiles = await db.userProfile.findMany({
     where: { organizationId, contactPhone: { not: null } },
-    select: { contactPhone: true, user: { select: { name: true } } },
+    select: { contactPhone: true, userId: true, user: { select: { name: true } } },
   });
-  const agentByPhone = new Map<string, string>();
+  const agentByPhone = new Map<string, LineAgent>();
   for (const profile of profiles) {
     const phone = normalizePhone(profile.contactPhone ?? "");
-    if (phone && profile.user.name) agentByPhone.set(phone, profile.user.name);
+    if (phone) agentByPhone.set(phone, { userId: profile.userId, name: profile.user.name || null });
   }
   return agentByPhone;
 }
@@ -124,7 +127,7 @@ type CallEventRow = Awaited<
   ReturnType<typeof db.callEvent.findMany<{ include: typeof callEventInclude }>>
 >[number];
 
-function groupCallEvents(events: CallEventRow[], agentByPhone: Map<string, string>) {
+function groupCallEvents(events: CallEventRow[], agentByPhone: Map<string, LineAgent>) {
   const groups = new Map<string, CallEventRow[]>();
   for (const event of events) {
     const payload = payloadOf(event.payload);
@@ -162,7 +165,8 @@ function groupCallEvents(events: CallEventRow[], agentByPhone: Map<string, strin
       direction: directionOf(latest),
       phone,
       line,
-      agentName: agentByPhone.get(normalizePhone(line)) ?? null,
+      agentName: agentByPhone.get(normalizePhone(line))?.name ?? null,
+      agentUserId: agentByPhone.get(normalizePhone(line))?.userId ?? null,
       status: statusOf(payloads),
       durationSeconds: durationOf(payloads),
       contactName,
@@ -200,6 +204,28 @@ export async function listCallHistoryForPhone(organizationId: string, phone: str
   ]);
 
   return groupCallEvents(events, agents);
+}
+
+/**
+ * Grouped call rows that started within [from, to]. Events are loaded with a
+ * small margin so calls that span the boundary are grouped correctly.
+ */
+export async function listCallRowsInRange(organizationId: string, from: Date, to: Date) {
+  const marginMs = 6 * 60 * 60 * 1000;
+  const [events, agents] = await Promise.all([
+    db.callEvent.findMany({
+      where: {
+        organizationId,
+        createdAt: { gte: new Date(from.getTime() - marginMs), lte: new Date(to.getTime() + marginMs) },
+      },
+      orderBy: { createdAt: "desc" },
+      include: callEventInclude,
+    }),
+    agentNames(organizationId),
+  ]);
+  return groupCallEvents(events, agents).filter(
+    (row) => row.startedAt >= from && row.startedAt <= to
+  );
 }
 
 export const CALL_HISTORY_PAGE_SIZE = 25;

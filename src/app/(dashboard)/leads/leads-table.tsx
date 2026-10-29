@@ -39,6 +39,7 @@ export type LeadTableRow = {
   name: string;
   email: string;
   previousProvider: string;
+  contractExpiry: string;
   source: string;
   campaign: string;
   statusName: string;
@@ -68,6 +69,8 @@ function cell(
       return lead.email;
     case "previousProvider":
       return lead.previousProvider;
+    case "contractExpiry":
+      return lead.contractExpiry;
     case "source":
       return lead.source;
     case "campaign":
@@ -139,30 +142,24 @@ function SortableColumn({
 export function LeadsTable({
   leads,
   columns: initialColumns,
-  query,
-  status,
-  from,
-  to,
-  campaign,
+  filters,
   page,
   pageCount,
   total,
   statuses,
   campaigns,
+  prospectServices,
   agents,
 }: {
   leads: LeadTableRow[];
   columns: LeadColumnPref[];
-  query: string;
-  status: string[];
-  from: string;
-  to: string;
-  campaign: string;
+  filters: LeadFilters;
   page: number;
   pageCount: number;
   total: number;
   statuses: { id: string; name: string; color: string }[];
   campaigns: string[];
+  prospectServices: { id: string; name: string }[];
   agents?: { userId: string; name: string }[];
 }) {
   const [columns, setColumns] = useState(initialColumns);
@@ -172,7 +169,6 @@ export function LeadsTable({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   const visible = columns.filter((column) => column.visible);
-  const filters: LeadFilters = { q: query, status, from, to, campaign };
 
   async function persist(next: LeadColumnPref[]) {
     const normalized = normalizeLeadColumns(next);
@@ -212,6 +208,7 @@ export function LeadsTable({
         filters={filters}
         statuses={statuses}
         campaigns={campaigns}
+        prospectServices={prospectServices}
         actions={
         <Popover>
           <PopoverTrigger asChild>

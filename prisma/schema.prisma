@@ -10,27 +10,28 @@ datasource db {
 // ─── Better Auth core ───────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  isSuperAdmin  Boolean   @default(false)
-  preferences   Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  members       Member[]
-  invitations   Invitation[] @relation("Inviter")
-  profiles      UserProfile[]
-  assignedLeads Lead[]    @relation("AssignedLeads")
-  orders        Order[]   @relation("OrderSeller")
-  logs          Log[]
+  id                 String              @id @default(cuid())
+  name               String
+  email              String              @unique
+  emailVerified      Boolean             @default(false)
+  image              String?
+  isSuperAdmin       Boolean             @default(false)
+  preferences        Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  sessions           Session[]
+  accounts           Account[]
+  members            Member[]
+  invitations        Invitation[]        @relation("Inviter")
+  profiles           UserProfile[]
+  assignedLeads      Lead[]              @relation("AssignedLeads")
+  orders             Order[]             @relation("OrderSeller")
+  logs               Log[]
   leadShares         LeadShare[]
   leadCampaignShares LeadCampaignShare[]
-  leadComments  LeadComment[]
-  targetCalls   CallEvent[]   @relation("CallTarget")
+  leadComments       LeadComment[]
+  targetCalls        CallEvent[]         @relation("CallTarget")
+  prospectContracts  ProspectContract[]  @relation("ProspectContractUpdatedBy")
 
   @@map("user")
 }
@@ -95,16 +96,16 @@ model Organization {
   metadata  String?
   createdAt DateTime @default(now())
 
-  members         Member[]
-  invitations     Invitation[]
-  profiles        UserProfile[]
-  sources         Source[]
-  offers          Offer[]
-  appStatuses     AppStatus[]
-  leadStages      LeadStage[]
-  customers       Customer[]
-  leads           Lead[]
-  orders          Order[]
+  members                 Member[]
+  invitations             Invitation[]
+  profiles                UserProfile[]
+  sources                 Source[]
+  offers                  Offer[]
+  appStatuses             AppStatus[]
+  leadStages              LeadStage[]
+  customers               Customer[]
+  leads                   Lead[]
+  orders                  Order[]
   apiKeys                 ApiKey[]
   logs                    Log[]
   callEvents              CallEvent[]
@@ -113,6 +114,8 @@ model Organization {
   leadCampaignShares      LeadCampaignShare[]
   leadDistributionSources LeadDistributionSource[]
   leadComments            LeadComment[]
+  prospectServices        ProspectService[]
+  prospectContracts       ProspectContract[]
 
   @@map("organization")
 }
@@ -207,6 +210,16 @@ enum BillingNotificationType {
   sms
 }
 
+enum ContractDeliveryMethod {
+  courier
+  esign
+}
+
+enum ESignChannel {
+  email
+  sms
+}
+
 enum SourceChannel {
   manual
   facebook
@@ -233,18 +246,18 @@ enum CallKind {
 // ─── Catalog ──────────────────────────────────────────────────────────────────
 
 model Source {
-  id             String        @id @default(cuid())
-  organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  name           String
-  channel        SourceChannel @default(manual)
-  enabled        Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  leads                Lead[]
-  orders               Order[]
-  customers            Customer[]
-  distributionSources  LeadDistributionSource[]
+  id                  String                   @id @default(cuid())
+  organizationId      String
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                String
+  channel             SourceChannel            @default(manual)
+  enabled             Boolean                  @default(true)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  leads               Lead[]
+  orders              Order[]
+  customers           Customer[]
+  distributionSources LeadDistributionSource[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -252,20 +265,20 @@ model Source {
 }
 
 model Offer {
-  id                   String      @id @default(cuid())
+  id                   String        @id @default(cuid())
   organizationId       String
-  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   code                 String
   name                 String
   productLine          ProductLine
-  catalogMonthlyAmount Decimal?    @db.Decimal(10, 2)
+  catalogMonthlyAmount Decimal?      @db.Decimal(10, 2)
   validFrom            DateTime?
   validTo              DateTime?
-  enabled              Boolean     @default(true)
+  enabled              Boolean       @default(true)
   prepaidGroup         String?
   metadata             Json?
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
   applications         Application[]
 
   @@unique([organizationId, code])
@@ -274,17 +287,17 @@ model Offer {
 }
 
 model AppStatus {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
-  color          String       @default("#6b7280")
-  sortOrder      Int          @default(0)
-  isDefault      Boolean      @default(false)
-  isTerminal     Boolean      @default(false)
-  isSuccess      Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  color          String        @default("#6b7280")
+  sortOrder      Int           @default(0)
+  isDefault      Boolean       @default(false)
+  isTerminal     Boolean       @default(false)
+  isSuccess      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   applications   Application[]
 
   @@unique([organizationId, name])
@@ -314,33 +327,33 @@ model LeadStage {
 // ─── CRM entities ─────────────────────────────────────────────────────────────
 
 model Customer {
-  id                         String       @id @default(cuid())
-  organizationId             String
-  organization               Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  firstName                  String
-  lastName                   String
-  fatherName                 String?
-  vatNumber                  String?
-  documentType               DocumentType @default(id_card)
-  documentNumber             String?
-  documentIssuer             String?
-  contactPhone               String
-  homeStreet                 String?
-  homeNumber                 String?
-  homeCity                   String?
-  homePostalCode             String?
-  homeRegion                 String?
-  birthCountry               String?
-  birthDate                  DateTime?
-  notes                      String?
-  consentMarketing           Boolean?
-  sourceId                   String?
-  source                     Source?      @relation(fields: [sourceId], references: [id])
-  createdAt                  DateTime     @default(now())
-  updatedAt                  DateTime     @updatedAt
-  orders                     Order[]
-  leads                      Lead[]
-  callEvents                 CallEvent[]
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firstName        String
+  lastName         String
+  fatherName       String?
+  vatNumber        String?
+  documentType     DocumentType @default(id_card)
+  documentNumber   String?
+  documentIssuer   String?
+  contactPhone     String
+  homeStreet       String?
+  homeNumber       String?
+  homeCity         String?
+  homePostalCode   String?
+  homeRegion       String?
+  birthCountry     String?
+  birthDate        DateTime?
+  notes            String?
+  consentMarketing Boolean?
+  sourceId         String?
+  source           Source?      @relation(fields: [sourceId], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  orders           Order[]
+  leads            Lead[]
+  callEvents       CallEvent[]
 
   @@unique([organizationId, contactPhone])
   @@unique([organizationId, vatNumber])
@@ -365,43 +378,47 @@ model ShippingAddress {
 }
 
 model InstallationAddress {
-  id         String      @id @default(cuid())
-  street     String
-  number     String?
-  city       String
-  postalCode String
-  region     String?
-  floor      String?
-  notes      String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id          String       @id @default(cuid())
+  street      String
+  number      String?
+  city        String
+  postalCode  String
+  region      String?
+  floor       String?
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   application Application?
 
   @@map("installation_address")
 }
 
 model Order {
-  id                String          @id @default(cuid())
+  id                String                 @id @default(cuid())
   organizationId    String
-  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   orderRef          String
   customerId        String
-  customer          Customer        @relation(fields: [customerId], references: [id])
-  shippingAddressId String          @unique
-  shippingAddress   ShippingAddress @relation(fields: [shippingAddressId], references: [id])
+  customer          Customer               @relation(fields: [customerId], references: [id])
+  contractDelivery  ContractDeliveryMethod @default(courier)
+  esignChannel      ESignChannel?
+  esignEmail        String?
+  esignPhone        String?
+  shippingAddressId String?                @unique
+  shippingAddress   ShippingAddress?       @relation(fields: [shippingAddressId], references: [id])
   sourceId          String?
-  source            Source?         @relation(fields: [sourceId], references: [id])
+  source            Source?                @relation(fields: [sourceId], references: [id])
   sellerId          String?
-  seller            User?           @relation("OrderSeller", fields: [sellerId], references: [id])
+  seller            User?                  @relation("OrderSeller", fields: [sellerId], references: [id])
   salesCode         String?
   notes             String?
-  orderDate         DateTime        @default(now())
-  leadId            String?         @unique
-  lead              Lead?           @relation(fields: [leadId], references: [id])
-  archived          Boolean         @default(false)
+  orderDate         DateTime               @default(now())
+  leadId            String?                @unique
+  lead              Lead?                  @relation(fields: [leadId], references: [id])
+  archived          Boolean                @default(false)
   archivedAt        DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   applications      Application[]
 
   @@unique([organizationId, orderRef])
@@ -412,32 +429,32 @@ model Order {
 }
 
 model Application {
-  id                      String                 @id @default(cuid())
+  id                      String                   @id @default(cuid())
   organizationId          String
   orderId                 String
-  order                   Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order                   Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productLine             ProductLine
   applicationType         ApplicationType?
   portingNumber           String?
   previousProvider        String?
   notes                   String?
   statusId                String
-  status                  AppStatus              @relation(fields: [statusId], references: [id])
+  status                  AppStatus                @relation(fields: [statusId], references: [id])
   cancellationReason      String?
   pendingReason           String?
   msisdnSn                String?
   msisdn                  String?
-  isGift                  Boolean                @default(false)
-  agreedMonthlyAmount     Decimal?               @db.Decimal(10, 2)
+  isGift                  Boolean                  @default(false)
+  agreedMonthlyAmount     Decimal?                 @db.Decimal(10, 2)
   offerId                 String?
-  offer                   Offer?                 @relation(fields: [offerId], references: [id])
+  offer                   Offer?                   @relation(fields: [offerId], references: [id])
   offerSnapshot           Json?
   loopNumber              String?
   billingNotificationType BillingNotificationType?
-  installationAddressId   String?                @unique
-  installationAddress     InstallationAddress?   @relation(fields: [installationAddressId], references: [id])
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
+  installationAddressId   String?                  @unique
+  installationAddress     InstallationAddress?     @relation(fields: [installationAddressId], references: [id])
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   logs                    Log[]
 
   @@index([organizationId])
@@ -447,39 +464,41 @@ model Application {
 }
 
 model Lead {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  firstName      String?
-  lastName       String?
-  phone          String
-  email            String?
-  previousProvider String?
-  notes          String?
-  campaignName   String?
-  adsetName      String?
-  adName         String?
-  utmSource      String?
-  utmMedium      String?
-  utmCampaign    String?
-  utmContent     String?
-  utmTerm        String?
-  sourceId       String
-  source         Source       @relation(fields: [sourceId], references: [id])
-  statusId       String
-  status         LeadStage    @relation(fields: [statusId], references: [id])
-  assignedUserId String?
-  assignedUser   User?        @relation("AssignedLeads", fields: [assignedUserId], references: [id])
-  externalId     String?
-  payload        Json?
-  callbackAt     DateTime?
-  customerId     String?
-  customer       Customer?    @relation(fields: [customerId], references: [id])
-  order          Order?
-  callEvents     CallEvent[]
-  comments       LeadComment[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id                String             @id @default(cuid())
+  organizationId    String
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firstName         String?
+  lastName          String?
+  phone             String
+  email             String?
+  previousProvider  String?
+  notes             String?
+  campaignName      String?
+  adsetName         String?
+  adName            String?
+  utmSource         String?
+  utmMedium         String?
+  utmCampaign       String?
+  utmContent        String?
+  utmTerm           String?
+  sourceId          String
+  source            Source             @relation(fields: [sourceId], references: [id])
+  statusId          String
+  status            LeadStage          @relation(fields: [statusId], references: [id])
+  assignedUserId    String?
+  assignedUser      User?              @relation("AssignedLeads", fields: [assignedUserId], references: [id])
+  externalId        String?
+  payload           Json?
+  callbackAt        DateTime?
+  customerId        String?
+  customer          Customer?          @relation(fields: [customerId], references: [id])
+  order             Order?
+  callEvents        CallEvent[]
+  comments          LeadComment[]
+  prospectContracts ProspectContract[]
+  prospectingNotes  String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@unique([organizationId, sourceId, externalId])
   @@index([organizationId])
@@ -549,6 +568,49 @@ model LeadComment {
 
   @@index([leadId, createdAt])
   @@map("lead_comment")
+}
+
+// ─── Prospecting ──────────────────────────────────────────────────────────────
+
+model ProspectService {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  sortOrder      Int                @default(0)
+  enabled        Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  contracts      ProspectContract[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("prospect_service")
+}
+
+// What a lead told the agent about a service they already have elsewhere.
+model ProspectContract {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  serviceId      String
+  service        ProspectService @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  hasContract    Boolean
+  provider       String?
+  // First day (UTC) of the month the contract ends.
+  expiresAt      DateTime?
+  monthlyAmount  Decimal?        @db.Decimal(10, 2)
+  notes          String?
+  updatedById    String?
+  updatedBy      User?           @relation("ProspectContractUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([leadId, serviceId])
+  @@index([organizationId, serviceId, expiresAt])
+  @@map("prospect_contract")
 }
 
 model CallEvent {

@@ -8,6 +8,7 @@ import {
   importLeads,
 } from "@/lib/services/lead.service";
 import { recordLeadCall } from "@/lib/services/lead-call.service";
+import { saveLeadProspecting } from "@/lib/services/prospecting.service";
 
 export const GET = withAuth(async (req, ctx) => {
   const id = req.nextUrl.searchParams.get("id");
@@ -37,6 +38,11 @@ export const POST = withAuth(async (req, ctx) => {
           comment: body.comment,
           callbackAt: body.callbackAt,
         })
+      );
+    }
+    if (body.action === "prospecting") {
+      return jsonOk(
+        await saveLeadProspecting(ctx.organizationId, ctx, body.id, body.entries, body.notes)
       );
     }
     if (body.action === "import") {

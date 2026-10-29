@@ -200,7 +200,7 @@ export default async function CallListPage({
         extra={tab === "callbacks" ? { tab: "callbacks" } : undefined}
         filters={filters}
         statuses={stages
-          .filter((stage) => !stage.isClosed && !stage.isConverted)
+          .filter((stage) => stage.isDefault && !stage.isClosed && !stage.isConverted)
           .map((stage) => ({ id: stage.id, name: stage.name, color: stage.color }))}
         campaigns={campaigns}
       />

@@ -114,7 +114,13 @@ export async function deleteOrganization(organizationId: string) {
     }
     if (orders.length > 0) {
       await tx.shippingAddress.deleteMany({
-        where: { id: { in: orders.map((order) => order.shippingAddressId) } },
+        where: {
+          id: {
+            in: orders
+              .map((order) => order.shippingAddressId)
+              .filter((id): id is string => Boolean(id)),
+          },
+        },
       });
     }
 

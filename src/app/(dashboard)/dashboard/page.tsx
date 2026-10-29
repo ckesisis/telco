@@ -1,23 +1,25 @@
 import Link from "next/link";
-import { startOfMonth, endOfMonth } from "date-fns";
 import { requireAuthContext } from "@/lib/tenancy";
-import { getDashboardStats } from "@/lib/services/reporting.service";
-import { PageHeader, StatCard } from "@/components/shared/page-header";
+import { getReport } from "@/lib/services/reporting.service";
+import { parseReportFilters, reportHref } from "@/lib/reporting/filters";
+import { formatDuration, formatMinutes, formatNumber, formatPct } from "@/lib/reporting/format";
+import { PageHeader } from "@/components/shared/page-header";
+import { KpiCard, KpiStrip } from "@/components/shared/kpi-card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PRODUCT_LINE_LABELS } from "@/config/product-lines";
+import { TrendChart } from "../reporting/_components/trend-chart";
+import { AgentLeaderboard, SectionCard } from "../reporting/_components/report-tables";
 
 export default async function DashboardPage() {
   const ctx = await requireAuthContext();
-  const from = startOfMonth(new Date());
-  const to = endOfMonth(new Date());
-  const stats = await getDashboardStats(ctx.organizationId, ctx, from, to);
+  const filters = parseReportFilters({}, ctx);
+  const report = await getReport(ctx, filters);
+  const { current: cur, previous: prev } = report;
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        description={`${ctx.organizationName} — τρέχων μήνας`}
+        description={`${ctx.organizationName} — τρέχων μήνας (${report.period.label})`}
         action={
           <div className="flex gap-2">
             <Button asChild variant="outline">
@@ -30,41 +32,96 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Leads" value={stats.leadsCount} hint={`${stats.leadConversionRate}% conversion`} />
-        <StatCard label="Πελάτες" value={stats.customersCount} />
-        <StatCard label="Παραγγελίες" value={stats.ordersCount} />
-        <StatCard label="Αιτήσεις" value={stats.appsCount} hint={`${stats.activationRate}% ενεργοποίηση`} />
+      <KpiStrip>
+        <KpiCard
+          bare
+          label="Νέα leads"
+          value={formatNumber(cur.leads)}
+          current={cur.leads}
+          previous={prev.leads}
+          spark={report.trend.points.map((p) => p.leads)}
+        />
+        <KpiCard
+          bare
+          label="Πωλήσεις"
+          info="Leads του μήνα σε κατάσταση «Μετατράπηκε»."
+          value={formatNumber(cur.sales)}
+          current={cur.sales}
+          previous={prev.sales}
+          spark={report.trend.points.map((p) => p.sales)}
+        />
+        <KpiCard
+          bare
+          label="Lead → Πώληση"
+          value={formatPct(cur.saleRate)}
+          current={cur.saleRate}
+          previous={prev.saleRate}
+          deltaMode="points"
+        />
+        <KpiCard
+          bare
+          label="Speed to lead"
+          info="Διάμεσος χρόνος έως την 1η εξερχόμενη κλήση."
+          value={formatMinutes(cur.speed.medianMinutes)}
+          current={cur.speed.medianMinutes}
+          previous={prev.speed.medianMinutes}
+          lowerIsBetter
+        />
+        <KpiCard
+          bare
+          label="Κλήσεις"
+          value={formatNumber(cur.calls.total)}
+          hint={`${formatDuration(cur.calls.talkSeconds)} ομιλία`}
+          current={cur.calls.total}
+          previous={prev.calls.total}
+          spark={report.trend.points.map((p) => p.incoming + p.outgoing)}
+        />
+        <KpiCard
+          bare
+          label="Ληξιπρόθεσμα callbacks"
+          value={formatNumber(report.leads.pipeline.overdueCallbacks)}
+          hint={`${formatNumber(report.leads.pipeline.open)} ανοιχτά leads`}
+        />
+      </KpiStrip>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <TrendChart
+          title="Leads & πωλήσεις"
+          points={report.trend.points}
+          granularity={report.trend.granularity}
+          series={[
+            { key: "leads", label: "Leads" },
+            { key: "sales", label: "Πωλήσεις" },
+            ...(report.hasApplications ? [{ key: "applications" as const, label: "Αιτήσεις" }] : []),
+          ]}
+        />
+        <TrendChart
+          title="Κλήσεις"
+          points={report.trend.points}
+          granularity={report.trend.granularity}
+          series={[
+            { key: "incoming", label: "Εισερχόμενες" },
+            { key: "outgoing", label: "Εξερχόμενες" },
+            { key: "missed", label: "Αναπάντητες" },
+          ]}
+        />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Αιτήσεις ανά κατάσταση</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {stats.appsByStatus.map((row) => (
-              <div key={row.statusId} className="flex justify-between text-sm">
-                <span>{row.statusName}</span>
-                <span className="font-medium">{row.count}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      {report.leaderboard && (
+        <SectionCard className="mt-5" title="Top agents του μήνα" flush>
+          <AgentLeaderboard
+            rows={report.leaderboard}
+            limit={5}
+            showApps={report.hasApplications}
+            agentHref={(userId) => reportHref({ ...filters, agentId: userId })}
+          />
+        </SectionCard>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Αιτήσεις ανά γραμμή προϊόντος</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {stats.appsByLine.map((row) => (
-              <div key={row.productLine} className="flex justify-between text-sm">
-                <span>{PRODUCT_LINE_LABELS[row.productLine as keyof typeof PRODUCT_LINE_LABELS]}</span>
-                <span className="font-medium">{row.count}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      <div className="mt-4 text-right">
+        <Link href="/reporting" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+          Αναλυτικές αναφορές →
+        </Link>
       </div>
     </div>
   );
