@@ -17,6 +17,7 @@ import {
   ASSIGNABLE_ROLES,
   ASSIGNABLE_ROLE_LABELS,
   ORG_ROLE_LABELS,
+  type AssignableRole,
   type OrgRole,
 } from "@/config/roles";
 
@@ -33,7 +34,7 @@ const emptyCreateForm = {
   name: "",
   email: "",
   password: "",
-  role: "member" as const,
+  role: "member" as AssignableRole,
   salesCode: "",
   contactPhone: "",
 };

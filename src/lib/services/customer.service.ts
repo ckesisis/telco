@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { ApiContext } from "@/lib/api/handler";
+import { seesAllRecords } from "@/config/roles";
 import { phoneLookupValues } from "@/lib/phone";
 
 type ExistingCustomer = {
@@ -46,7 +47,7 @@ export async function listCustomers(
     take: 100,
   });
 
-  if (ctx.isAdmin) return customers;
+  if (seesAllRecords(ctx.role)) return customers;
 
   const orderCustomerIds = await db.order.findMany({
     where: {

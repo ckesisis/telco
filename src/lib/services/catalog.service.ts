@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { ApiContext } from "@/lib/api/handler";
+import { seesAllRecords } from "@/config/roles";
 
 export async function listSources(organizationId: string) {
   return db.source.findMany({
@@ -216,7 +217,7 @@ export function canAgentSeeRecord(
   ctx: ApiContext,
   record: { salesCode?: string | null; sellerId?: string | null; assignedUserId?: string | null }
 ) {
-  if (ctx.isAdmin) return true;
+  if (seesAllRecords(ctx.role)) return true;
   if (record.sellerId === ctx.userId || record.assignedUserId === ctx.userId) return true;
   if (!record.salesCode && !record.sellerId && !record.assignedUserId) return true;
   if (ctx.salesCode && record.salesCode === ctx.salesCode) return true;

@@ -1,4 +1,5 @@
 import { withAuth, withApiKey, jsonOk, jsonError } from "@/lib/api/handler";
+import { seesAllRecords } from "@/config/roles";
 import {
   listLeads,
   getLead,
@@ -14,7 +15,7 @@ export const GET = withAuth(async (req, ctx) => {
   const id = req.nextUrl.searchParams.get("id");
   if (id) {
     const lead = await getLead(ctx.organizationId, id);
-    if (!lead || (lead.assignedUserId && lead.assignedUserId !== ctx.userId && !ctx.isAdmin)) {
+    if (!lead || (lead.assignedUserId && lead.assignedUserId !== ctx.userId && !seesAllRecords(ctx.role))) {
       return jsonError("Not found", 404);
     }
     return jsonOk(lead);

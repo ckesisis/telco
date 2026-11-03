@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Eye } from "lucide-react";
 import { requireAuthContext } from "@/lib/tenancy";
+import { seesAllRecords } from "@/config/roles";
 import { listCallQueue } from "@/lib/services/lead-call.service";
 import { listLeadCampaigns } from "@/lib/services/lead.service";
 import { listLeadStages } from "@/lib/services/lead-status.service";
@@ -160,7 +161,7 @@ export default async function CallListPage({
         {lead.status.name}
       </Badge>,
       formatDateTime(lead.callbackAt),
-      ...(ctx.isAdmin ? [lead.assignedUser?.name ?? "—"] : []),
+      ...(seesAllRecords(ctx.role) ? [lead.assignedUser?.name ?? "—"] : []),
       <Link
         key={`open-${lead.id}`}
         href={`/leads/${lead.id}`}
@@ -179,7 +180,7 @@ export default async function CallListPage({
     "Campaign",
     "Κατάσταση",
     "Επανάκληση",
-    ...(ctx.isAdmin ? ["Agent"] : []),
+    ...(seesAllRecords(ctx.role) ? ["Agent"] : []),
     "",
   ];
 

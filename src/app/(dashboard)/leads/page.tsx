@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAuthContext } from "@/lib/tenancy";
+import { seesAllRecords } from "@/config/roles";
 import { getMemberProfiles } from "@/lib/services/catalog.service";
 import { listLeadCampaigns, listLeadsPage } from "@/lib/services/lead.service";
 import { listLeadStages } from "@/lib/services/lead-status.service";
@@ -80,7 +81,7 @@ export default async function LeadsPage({
     getLeadColumnPreferences(ctx.userId),
     listLeadStages(ctx.organizationId),
     listLeadCampaigns(ctx.organizationId, ctx),
-    ctx.isAdmin ? getMemberProfiles(ctx.organizationId) : Promise.resolve([]),
+    seesAllRecords(ctx.role) ? getMemberProfiles(ctx.organizationId) : Promise.resolve([]),
     listProspectServices(ctx.organizationId),
   ]);
   const agents = members
@@ -149,7 +150,7 @@ export default async function LeadsPage({
         prospectServices={prospectServices
           .filter((item) => item.enabled || item.id === service)
           .map((item) => ({ id: item.id, name: item.name }))}
-        agents={ctx.isAdmin ? agents : undefined}
+        agents={seesAllRecords(ctx.role) ? agents : undefined}
         columns={columns}
         leads={leads.map((lead) => ({
           id: lead.id,

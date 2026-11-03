@@ -39,6 +39,7 @@ export default async function ReportingPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const ctx = await requireAuthContext();
+  const orgWide = ctx.isAdmin;
   const filters = parseReportFilters(await searchParams, ctx);
   const report = await getReport(ctx, filters);
   const { current: cur, previous: prev, trend } = report;
@@ -61,7 +62,7 @@ export default async function ReportingPage({
             <span className="font-medium text-slate-700">{report.period.label}</span>
             <span aria-hidden>·</span>
             <span>σύγκριση με {report.period.previousLabel}</span>
-            {!ctx.isAdmin && (
+            {!orgWide && (
               <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-xs text-slate-600">
                 Μόνο τα δικά σας δεδομένα
               </span>
@@ -79,7 +80,7 @@ export default async function ReportingPage({
         agents={report.options.agents}
         sources={report.options.sources}
         campaigns={report.options.campaigns}
-        isAdmin={ctx.isAdmin}
+        orgWide={orgWide}
         today={athensDay(new Date())}
         showProductLine={showApps}
       />
@@ -186,7 +187,7 @@ export default async function ReportingPage({
               staleDays={report.leads.pipeline.staleDays}
               unassignedOpen={report.leads.pipeline.unassignedOpen}
               open={report.leads.pipeline.open}
-              showUnassigned={ctx.isAdmin && !filters.agentId}
+              showUnassigned={orgWide && !filters.agentId}
             />
           </SectionCard>
 

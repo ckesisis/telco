@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAuthContext } from "@/lib/tenancy";
+import { canAccessReporting } from "@/config/roles";
 import { getReport } from "@/lib/services/reporting.service";
 import { parseReportFilters, reportHref } from "@/lib/reporting/filters";
 import { formatDuration, formatMinutes, formatNumber, formatPct } from "@/lib/reporting/format";
@@ -118,11 +119,13 @@ export default async function DashboardPage() {
         </SectionCard>
       )}
 
-      <div className="mt-4 text-right">
-        <Link href="/reporting" className="text-sm font-medium text-slate-600 hover:text-slate-900">
-          Αναλυτικές αναφορές →
-        </Link>
-      </div>
+      {canAccessReporting(ctx.role) && (
+        <div className="mt-4 text-right">
+          <Link href="/reporting" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+            Αναλυτικές αναφορές →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { ApiContext } from "@/lib/api/handler";
+import { seesAllRecords } from "@/config/roles";
 import { db } from "@/lib/db";
 import { getLead } from "@/lib/services/lead.service";
 
@@ -64,7 +65,7 @@ function queueWhere(
   const search = searchClause(filters?.search);
   return {
     organizationId,
-    ...(ctx.isAdmin ? {} : { assignedUserId: ctx.userId }),
+    ...(seesAllRecords(ctx.role) ? {} : { assignedUserId: ctx.userId }),
     // The call queue only works on new leads (the default "Νέα leads" stage).
     status: {
       isDefault: true,
@@ -147,7 +148,7 @@ export async function recordLeadCall(
   const lead = await getLead(organizationId, input.id);
   if (!lead) throw new Error("Το lead δεν βρέθηκε");
   if (
-    !ctx.isAdmin &&
+    !seesAllRecords(ctx.role) &&
     lead.assignedUserId &&
     lead.assignedUserId !== ctx.userId
   ) {

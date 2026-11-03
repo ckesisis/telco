@@ -53,7 +53,7 @@ export function ReportingFilters({
   agents,
   sources,
   campaigns,
-  isAdmin,
+  orgWide,
   today,
   showProductLine = true,
 }: {
@@ -61,7 +61,7 @@ export function ReportingFilters({
   agents: { id: string; name: string }[];
   sources: { id: string; name: string }[];
   campaigns: string[];
-  isAdmin: boolean;
+  orgWide: boolean;
   /** Current day (YYYY-MM-DD) in Athens time, from the server. */
   today: string;
   /** Product line only applies to applications, so it is hidden until they exist. */
@@ -86,7 +86,7 @@ export function ReportingFilters({
             onApply={(range) => go(range)}
           />
         </div>
-        {isAdmin && (
+        {orgWide && (
           <FilterSelect
             label="Agent"
             value={filters.agentId}

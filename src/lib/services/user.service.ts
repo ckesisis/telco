@@ -2,7 +2,7 @@ import { createLocalAccountIssuer } from "@better-auth/core/db";
 import { hashPassword } from "better-auth/crypto";
 import { db } from "@/lib/db";
 import type { AssignableRole } from "@/config/roles";
-import { isAssignableRole } from "@/config/roles";
+import { isAdminRole, isAssignableRole } from "@/config/roles";
 import { upsertUserProfile } from "@/lib/services/catalog.service";
 
 export async function createOrganizationUser(
@@ -202,9 +202,7 @@ export async function updateOrganizationUser(
       throw new Error("Δεν μπορείτε να αλλάξετε τον δικό σας ρόλο");
     }
 
-    const isDemotingAdmin =
-      (member.role === "admin" || member.role === "owner") &&
-      data.role === "member";
+    const isDemotingAdmin = isAdminRole(member.role) && !isAdminRole(data.role);
 
     if (isDemotingAdmin) {
       const adminCount = await db.member.count({

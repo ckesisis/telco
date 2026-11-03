@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageSettings } from "@/config/roles";
+import { canAccessApiPath, canManageSettings } from "@/config/roles";
 import { resolveAccess } from "@/lib/tenancy";
 import { createHash, timingSafeEqual } from "crypto";
 
@@ -72,6 +72,9 @@ export function withAuth(
     const ctx = await resolveApiContext(request);
     if (!ctx) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canAccessApiPath(ctx.role, request.nextUrl.pathname)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     return handler(request, ctx, routeCtx);
   };

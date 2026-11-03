@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { canAccessReporting } from "@/config/roles";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -44,15 +45,20 @@ const settingsItems = [
 export function AppSidebar({
   organizationName,
   userName,
+  role,
   isAdmin,
   isSuperAdmin,
 }: {
   organizationName: string;
   userName: string;
+  role: string;
   isAdmin: boolean;
   isSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
+  const items = canAccessReporting(role)
+    ? navItems
+    : navItems.filter((item) => item.href !== "/reporting");
 
   async function handleLogout() {
     await authClient.signOut();
@@ -72,7 +78,7 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const active =
             item.href === "/dashboard"

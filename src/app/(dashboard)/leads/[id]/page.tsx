@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuthContext } from "@/lib/tenancy";
+import { seesAllRecords } from "@/config/roles";
 import { canAccessLead, getLead } from "@/lib/services/lead.service";
 import { listCallHistoryForPhone, type CallHistoryStatus } from "@/lib/services/call-history";
 import { PageHeader, DataTable, EmptyState } from "@/components/shared/page-header";
@@ -59,7 +60,7 @@ export default async function LeadDetailPage({
     getLead(ctx.organizationId, id),
     listLeadStages(ctx.organizationId),
     listProspectServices(ctx.organizationId),
-    ctx.isAdmin ? getMemberProfiles(ctx.organizationId) : Promise.resolve([]),
+    seesAllRecords(ctx.role) ? getMemberProfiles(ctx.organizationId) : Promise.resolve([]),
   ]);
   if (!lead || !canAccessLead(ctx, lead)) notFound();
 
@@ -151,7 +152,7 @@ export default async function LeadDetailPage({
           <Fact
             label="Agent"
             value={
-              ctx.isAdmin ? (
+              seesAllRecords(ctx.role) ? (
                 <LeadAssignee
                   leadId={lead.id}
                   assignedUserId={lead.assignedUserId}

@@ -8,6 +8,7 @@ import {
 import { canAgentSeeRecord } from "@/lib/services/catalog.service";
 import { getConvertedLeadStageId } from "@/lib/services/lead-status.service";
 import { PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
+import { seesAllRecords } from "@/config/roles";
 
 type ApplicationInput = {
   productLine: string;
@@ -36,7 +37,7 @@ export async function listOrders(organizationId: string, ctx: ApiContext) {
     where: {
       organizationId,
       archived: false,
-      ...(ctx.isAdmin
+      ...(seesAllRecords(ctx.role)
         ? {}
         : {
             OR: [
@@ -229,7 +230,7 @@ export async function listApplications(
         PRODUCT_LINE_LABELS[line].toLowerCase().includes(search.toLowerCase())
       )
     : [];
-  const access = ctx.isAdmin
+  const access = seesAllRecords(ctx.role)
     ? []
     : [
         {

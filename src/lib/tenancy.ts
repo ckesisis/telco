@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canManageSettings, isAdminRole } from "@/config/roles";
+import { canManageSettings, isAdminRole, seesAllRecords } from "@/config/roles";
 
 export type AuthContext = {
   userId: string;
@@ -162,7 +162,7 @@ export async function requireAdminContext(): Promise<AuthContext> {
 }
 
 export function agentScopeFilter(ctx: AuthContext) {
-  if (ctx.isAdmin) return {};
+  if (seesAllRecords(ctx.role)) return {};
   return {
     OR: [
       { salesCode: ctx.salesCode ?? undefined },

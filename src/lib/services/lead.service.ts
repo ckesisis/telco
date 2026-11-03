@@ -9,6 +9,7 @@ import {
 } from "@/lib/lead-attribution";
 import { readPreviousProvider } from "@/config/application-types";
 import { monthRange } from "@/lib/prospecting";
+import { seesAllRecords } from "@/config/roles";
 import {
   getConvertedLeadStageId,
   getDefaultLeadStageId,
@@ -64,7 +65,7 @@ function leadListWhere(organizationId: string, ctx: ApiContext, filters?: LeadLi
   const from = filters?.from ? dayStart(filters.from) : null;
   const to = filters?.to ? dayEnd(filters.to) : null;
   const statuses = statusIds(filters?.status);
-  const access = ctx.isAdmin
+  const access = seesAllRecords(ctx.role)
     ? []
     : [{ OR: [{ assignedUserId: ctx.userId }, { assignedUserId: null }] }];
   const match = search
@@ -184,13 +185,13 @@ async function resolveAssignee(
   campaignName?: string | null
 ) {
   if (explicit) {
-    if (!ctx.isAdmin && explicit !== ctx.userId) {
+    if (!seesAllRecords(ctx.role) && explicit !== ctx.userId) {
       throw new Error("Δεν μπορείτε να αναθέσετε το lead σε άλλον χρήστη");
     }
     return explicit;
   }
 
-  if (ctx.isAdmin || ctx.userId === "api-key") {
+  if (seesAllRecords(ctx.role) || ctx.userId === "api-key") {
     const distributed = await pickDistributedAgent(
       organizationId,
       sourceId,
@@ -272,7 +273,7 @@ export function canAccessLead(
   ctx: ApiContext,
   lead: { assignedUserId: string | null }
 ) {
-  if (ctx.isAdmin) return true;
+  if (seesAllRecords(ctx.role)) return true;
   return !lead.assignedUserId || lead.assignedUserId === ctx.userId;
 }
 
@@ -301,7 +302,7 @@ export async function updateLead(
   if (typeof data.lastName === "string") next.lastName = data.lastName;
   if (typeof data.email === "string") next.email = data.email;
   if ("assignedUserId" in data) {
-    if (!ctx.isAdmin) {
+    if (!seesAllRecords(ctx.role)) {
       throw new Error("Δεν μπορείτε να αλλάξετε τον agent");
     }
     const assignedUserId = data.assignedUserId;
