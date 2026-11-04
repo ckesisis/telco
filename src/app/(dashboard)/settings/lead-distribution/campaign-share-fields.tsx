@@ -26,9 +26,15 @@ export function CampaignShareFields({
   const [error, setError] = useState("");
 
   function addCampaign() {
-    const name = draft.trim();
+    const name = draft.replace(/\s+/g, " ").trim();
     if (!name) return;
-    if (campaigns.some((campaign) => campaign.name === name)) {
+    const key = name.toLocaleLowerCase("el");
+    if (
+      campaigns.some(
+        (campaign) =>
+          campaign.name.replace(/\s+/g, " ").trim().toLocaleLowerCase("el") === key
+      )
+    ) {
       setError("Η καμπάνια υπάρχει ήδη");
       return;
     }
@@ -52,8 +58,8 @@ export function CampaignShareFields({
         <p className="text-sm text-slate-500">
           Για Facebook και META Ads, μια καμπάνια με δικά της ποσοστά μοιράζεται
           ξεχωριστά μέσα στην ημέρα. Οι υπόλοιπες καμπάνιες χρησιμοποιούν το
-          προεπιλεγμένο μοίρασμα. Το όνομα πρέπει να είναι ακριβώς το ίδιο με το
-          campaign name του lead.
+          προεπιλεγμένο μοίρασμα. Το όνομα συγκρίνεται με το campaign name του
+          lead χωρίς διάκριση πεζών/κεφαλαίων και διπλών κενών.
         </p>
         <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1 space-y-2">

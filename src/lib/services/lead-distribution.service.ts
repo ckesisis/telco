@@ -3,6 +3,16 @@ import { getMemberProfiles } from "@/lib/services/catalog.service";
 
 const DISTRIBUTION_TIME_ZONE = "Europe/Athens";
 
+// Meta campaign names often carry double spaces that look identical on screen,
+// so campaign overrides match on a whitespace- and case-insensitive key.
+export function cleanCampaignName(name: string) {
+  return name.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+function campaignKey(name: string) {
+  return cleanCampaignName(name).toLocaleLowerCase("el");
+}
+
 function timezoneOffsetMs(timeZone: string, date: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -178,12 +188,12 @@ export async function saveLeadDistribution(
   const seenCampaigns = new Set<string>();
   const campaignRows: { campaignName: string; userId: string; percent: number }[] = [];
   for (const campaign of input.campaigns ?? []) {
-    const campaignName = campaign.campaignName.trim();
+    const campaignName = cleanCampaignName(campaign.campaignName);
     if (!campaignName) continue;
-    if (seenCampaigns.has(campaignName)) {
+    if (seenCampaigns.has(campaignKey(campaignName))) {
       throw new Error(`Η καμπάνια «${campaignName}» υπάρχει ήδη`);
     }
-    seenCampaigns.add(campaignName);
+    seenCampaigns.add(campaignKey(campaignName));
     const positive = campaign.shares.filter((share) => share.percent > 0);
     if (!input.enabled && positive.length === 0) continue;
     const campaignShares = validateShares(
@@ -281,14 +291,14 @@ export async function pickDistributedAgent(
     return null;
   }
 
-  const campaign = campaignName?.trim() || "";
+  const campaign = campaignName ? campaignKey(campaignName) : "";
   const specificShares = campaign
-    ? campaignShares.filter((share) => share.campaignName === campaign)
+    ? campaignShares.filter((share) => campaignKey(share.campaignName) === campaign)
     : [];
   const shares = specificShares.length > 0 ? specificShares : defaultShares;
-  const configuredCampaigns = [
-    ...new Set(campaignShares.map((share) => share.campaignName)),
-  ];
+  const configuredKeys = new Set(
+    campaignShares.map((share) => campaignKey(share.campaignName))
+  );
 
   const profiles = await db.userProfile.findMany({
     where: {
@@ -302,22 +312,39 @@ export async function pickDistributedAgent(
   const activeShares = shares.filter((share) => !blocked.has(share.userId));
   if (activeShares.length === 0) return null;
 
+  // Today's raw campaign names, so counting matches the same spelling variants.
+  const dayRange = distributionDayRange();
+  const todaysCampaigns =
+    configuredKeys.size > 0
+      ? (
+          await db.lead.findMany({
+            where: { organizationId, createdAt: dayRange, campaignName: { not: null } },
+            distinct: ["campaignName"],
+            select: { campaignName: true },
+          })
+        ).flatMap((row) => (row.campaignName ? [row.campaignName] : []))
+      : [];
+  const matchingNames = todaysCampaigns.filter((name) => campaignKey(name) === campaign);
+  const configuredNames = todaysCampaigns.filter((name) =>
+    configuredKeys.has(campaignKey(name))
+  );
+
   const counts = await db.lead.groupBy({
     by: ["assignedUserId"],
     where: {
       organizationId,
       assignedUserId: { in: activeShares.map((share) => share.userId) },
-      createdAt: distributionDayRange(),
+      createdAt: dayRange,
       ...(sourceLinks.length > 0
         ? { sourceId: { in: sourceLinks.map((link) => link.sourceId) } }
         : {}),
       ...(specificShares.length > 0
-        ? { campaignName: campaign }
-        : configuredCampaigns.length > 0
+        ? { campaignName: { in: matchingNames } }
+        : configuredNames.length > 0
           ? {
               OR: [
                 { campaignName: null },
-                { campaignName: { notIn: configuredCampaigns } },
+                { campaignName: { notIn: configuredNames } },
               ],
             }
           : {}),
