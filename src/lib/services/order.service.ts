@@ -7,11 +7,11 @@ import {
 } from "@/lib/services/org.service";
 import { canAgentSeeRecord } from "@/lib/services/catalog.service";
 import { getConvertedLeadStageId } from "@/lib/services/lead-status.service";
-import { PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
+import { lineSupportsPortability, PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
 import { readPreviousProvider } from "@/config/application-types";
 import { seesAllRecords } from "@/config/roles";
 import { readPortingNumber } from "@/lib/phone";
-import { readWholeAmount } from "@/lib/utils";
+import { readAmount } from "@/lib/utils";
 
 type ApplicationInput = {
   productLine: string;
@@ -68,16 +68,17 @@ export async function getOrder(organizationId: string, id: string) {
   return db.order.findFirst({
     where: { id, organizationId },
     include: {
-      customer: true,
+      customer: { include: { source: true } },
       source: true,
       seller: true,
       shippingAddress: true,
-      lead: true,
+      lead: { include: { source: true, status: true, assignedUser: true } },
       applications: {
         include: {
           status: true,
           offer: true,
           installationAddress: true,
+          logs: { include: { user: true }, orderBy: { createdAt: "desc" } },
         },
       },
     },
@@ -130,7 +131,10 @@ export async function createOrder(
   }
 
   const applications = data.applications.map((app) => {
-    const agreedMonthlyAmount = readWholeAmount(app.agreedMonthlyAmount);
+    const agreedMonthlyAmount = readAmount(app.agreedMonthlyAmount);
+    if (app.applicationType === "portability" && !lineSupportsPortability(app.productLine)) {
+      throw new Error("Η φορητότητα δεν υποστηρίζεται σε αυτή τη γραμμή");
+    }
     if (app.applicationType !== "portability") {
       return { ...app, agreedMonthlyAmount, portingNumber: null, previousProvider: null };
     }

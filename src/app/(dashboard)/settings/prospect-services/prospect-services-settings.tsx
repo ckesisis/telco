@@ -26,7 +26,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 
-type ServiceRow = { id: string; name: string; enabled: boolean; leadCount: number };
+type ServiceRow = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  collectsInstallationAddress: boolean;
+  leadCount: number;
+};
 
 async function errorMessage(res: Response) {
   const data = await res.json().catch(() => null);
@@ -37,11 +43,13 @@ function Row({
   service,
   onRename,
   onToggle,
+  onToggleAddress,
   onDelete,
 }: {
   service: ServiceRow;
   onRename: (name: string) => Promise<boolean>;
   onToggle: () => void;
+  onToggleAddress: () => void;
   onDelete: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -90,6 +98,14 @@ function Row({
             <p className="text-xs text-slate-500">{service.leadCount} leads με απάντηση</p>
           </div>
           <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={service.collectsInstallationAddress}
+              onChange={onToggleAddress}
+            />
+            Διεύθυνση εγκατάστασης
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
             <input type="checkbox" checked={service.enabled} onChange={onToggle} />
             Ενεργή
           </label>
@@ -132,7 +148,10 @@ export function ProspectServicesSettings({ services: initial }: { services: Serv
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  async function patch(id: string, data: Partial<Pick<ServiceRow, "name" | "enabled">>) {
+  async function patch(
+    id: string,
+    data: Partial<Pick<ServiceRow, "name" | "enabled" | "collectsInstallationAddress">>
+  ) {
     const res = await fetch("/api/v1/catalog", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -160,7 +179,16 @@ export function ProspectServicesSettings({ services: initial }: { services: Serv
       return;
     }
     const service = await res.json();
-    setServices([...services, { id: service.id, name: service.name, enabled: true, leadCount: 0 }]);
+    setServices([
+      ...services,
+      {
+        id: service.id,
+        name: service.name,
+        enabled: true,
+        collectsInstallationAddress: false,
+        leadCount: 0,
+      },
+    ]);
     setName("");
     setError("");
     router.refresh();
@@ -231,6 +259,11 @@ export function ProspectServicesSettings({ services: initial }: { services: Serv
                 service={service}
                 onRename={(next) => patch(service.id, { name: next.trim() })}
                 onToggle={() => void patch(service.id, { enabled: !service.enabled })}
+                onToggleAddress={() =>
+                  void patch(service.id, {
+                    collectsInstallationAddress: !service.collectsInstallationAddress,
+                  })
+                }
                 onDelete={() => void handleDelete(service)}
               />
             ))}

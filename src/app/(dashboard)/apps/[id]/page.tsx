@@ -54,6 +54,9 @@ export default async function AppDetailPage({
               </>
             )}
             <p><span className="text-slate-500">Ποσό:</span> {formatCurrency(app.agreedMonthlyAmount?.toString())}</p>
+            <p className="whitespace-pre-wrap">
+              <span className="text-slate-500">Σχόλια:</span> {app.notes ?? "—"}
+            </p>
             {snapshot && (
               <p className="text-slate-500">Snapshot: {String(snapshot.offerName)}</p>
             )}

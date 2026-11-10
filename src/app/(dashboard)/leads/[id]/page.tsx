@@ -40,6 +40,28 @@ function formatDuration(seconds: number | null) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+function InstallationAddress({
+  contract,
+}: {
+  contract: {
+    installStreet: string | null;
+    installNumber: string | null;
+    installCity: string | null;
+    installPostalCode: string | null;
+  };
+}) {
+  const line = [
+    [contract.installStreet, contract.installNumber].filter(Boolean).join(" "),
+    [contract.installPostalCode, contract.installCity].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
+  if (!line) return null;
+  return (
+    <p className="mt-0.5 text-xs font-normal text-slate-500">Εγκατάσταση: {line}</p>
+  );
+}
+
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -96,6 +118,11 @@ export default async function LeadDetailPage({
     expiresMonth: toMonthValue(contract?.expiresAt),
     monthlyAmount: contract?.monthlyAmount?.toString() ?? "",
     notes: contract?.notes ?? "",
+    collectsInstallationAddress: service.collectsInstallationAddress,
+    installStreet: contract?.installStreet ?? "",
+    installNumber: contract?.installNumber ?? "",
+    installCity: contract?.installCity ?? "",
+    installPostalCode: contract?.installPostalCode ?? "",
   }));
   const prospectingForm = (
     <LeadProspectingForm
@@ -260,6 +287,7 @@ export default async function LeadDetailPage({
                           {contract.notes && (
                             <p className="mt-0.5 text-xs font-normal text-slate-500">{contract.notes}</p>
                           )}
+                          <InstallationAddress contract={contract} />
                         </>
                       ) : (
                         <>
@@ -275,6 +303,7 @@ export default async function LeadDetailPage({
                           {contract.notes && (
                             <p className="mt-0.5 text-xs font-normal text-slate-500">{contract.notes}</p>
                           )}
+                          <InstallationAddress contract={contract} />
                         </>
                       )
                     }

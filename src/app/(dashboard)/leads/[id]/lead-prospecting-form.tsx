@@ -23,7 +23,19 @@ export type ProspectAnswer = {
   expiresMonth: string;
   monthlyAmount: string;
   notes: string;
+  collectsInstallationAddress: boolean;
+  installStreet: string;
+  installNumber: string;
+  installCity: string;
+  installPostalCode: string;
 };
+
+const INSTALLATION_FIELDS = [
+  { key: "installStreet", label: "Οδός", className: "sm:col-span-2" },
+  { key: "installNumber", label: "Αριθμός", className: "" },
+  { key: "installCity", label: "Πόλη", className: "sm:col-span-2" },
+  { key: "installPostalCode", label: "ΤΚ", className: "" },
+] as const;
 
 const controlClass =
   "h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400";
@@ -90,6 +102,10 @@ export function LeadProspectingForm({
           expiresMonth: row.expiresMonth || null,
           monthlyAmount: row.monthlyAmount || null,
           notes: row.notes || null,
+          installStreet: row.installStreet || null,
+          installNumber: row.installNumber || null,
+          installCity: row.installCity || null,
+          installPostalCode: row.installPostalCode || null,
         })),
         notes: generalNotes,
       }),
@@ -184,6 +200,28 @@ export function LeadProspectingForm({
                         />
                       </Field>
                     </div>
+                  )}
+                  {row.hasContract !== null && row.collectsInstallationAddress && (
+                    <fieldset className="mt-3">
+                      <legend className="mb-2 text-xs font-medium text-slate-700">
+                        Διεύθυνση Εγκατάστασης
+                      </legend>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {INSTALLATION_FIELDS.map((field) => (
+                          <div key={field.key} className={field.className}>
+                            <Field label={field.label}>
+                              <Input
+                                value={row[field.key]}
+                                inputMode={field.key === "installPostalCode" ? "numeric" : undefined}
+                                onChange={(event) =>
+                                  update(row.serviceId, { [field.key]: event.target.value })
+                                }
+                              />
+                            </Field>
+                          </div>
+                        ))}
+                      </div>
+                    </fieldset>
                   )}
                   {row.hasContract !== null && (
                     <div className="mt-3">

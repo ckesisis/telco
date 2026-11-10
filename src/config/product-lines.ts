@@ -9,3 +9,13 @@ export const PRODUCT_LINE_LABELS: Record<ProductLine, string> = {
 export const PRODUCT_LINES = Object.keys(
   PRODUCT_LINE_LABELS
 ) as ProductLine[];
+
+export const PORTABILITY_PRODUCT_LINES = [
+  "prepaid_mobile",
+  "postpaid_mobile",
+  "fixed_telephony",
+] as const satisfies readonly ProductLine[];
+
+export function lineSupportsPortability(productLine: string) {
+  return (PORTABILITY_PRODUCT_LINES as readonly string[]).includes(productLine);
+}

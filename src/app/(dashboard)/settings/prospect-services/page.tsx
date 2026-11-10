@@ -11,6 +11,7 @@ export default async function ProspectServicesPage() {
         id: service.id,
         name: service.name,
         enabled: service.enabled,
+        collectsInstallationAddress: service.collectsInstallationAddress,
         leadCount: service._count.contracts,
       }))}
     />

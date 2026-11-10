@@ -26,19 +26,48 @@ export async function listCustomers(
   ctx: ApiContext,
   search?: string
 ) {
-  const customers = await db.customer.findMany({
-    where: {
-      organizationId,
-      ...(search && {
-        OR: [
-          { firstName: { contains: search, mode: "insensitive" } },
-          { lastName: { contains: search, mode: "insensitive" } },
-          { contactPhone: { contains: search } },
-          { vatNumber: { contains: search } },
-          { documentNumber: { contains: search, mode: "insensitive" } },
-        ],
-      }),
-    },
+  const access = seesAllRecords(ctx.role)
+    ? []
+    : [
+        {
+          OR: [
+            {
+              orders: {
+                some: {
+                  OR: [
+                    { sellerId: ctx.userId },
+                    { salesCode: ctx.salesCode ?? undefined },
+                    { sellerId: null },
+                  ],
+                },
+              },
+            },
+            {
+              leads: {
+                some: {
+                  OR: [{ assignedUserId: ctx.userId }, { assignedUserId: null }],
+                },
+              },
+            },
+          ],
+        },
+      ];
+  const match = search
+    ? [
+        {
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" as const } },
+            { lastName: { contains: search, mode: "insensitive" as const } },
+            { contactPhone: { contains: search } },
+            { vatNumber: { contains: search } },
+            { documentNumber: { contains: search, mode: "insensitive" as const } },
+          ],
+        },
+      ]
+    : [];
+
+  return db.customer.findMany({
+    where: { organizationId, AND: [...access, ...match] },
     include: {
       source: true,
       _count: { select: { orders: true, leads: true } },
@@ -46,22 +75,6 @@ export async function listCustomers(
     orderBy: { createdAt: "desc" },
     take: 100,
   });
-
-  if (seesAllRecords(ctx.role)) return customers;
-
-  const orderCustomerIds = await db.order.findMany({
-    where: {
-      organizationId,
-      OR: [
-        { sellerId: ctx.userId },
-        { salesCode: ctx.salesCode ?? undefined },
-        { sellerId: null },
-      ],
-    },
-    select: { customerId: true },
-  });
-  const allowedIds = new Set(orderCustomerIds.map((o) => o.customerId));
-  return customers.filter((c) => allowedIds.has(c.id));
 }
 
 export async function getCustomer(organizationId: string, id: string) {

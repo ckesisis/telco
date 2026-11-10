@@ -96,7 +96,11 @@ function cell(
     case "createdAt":
       return lead.createdAt;
     case "notes":
-      return lead.notes;
+      return (
+        <span className="block max-w-xs truncate" title={lead.notes}>
+          {lead.notes}
+        </span>
+      );
     case "adset":
       return lead.adset;
     case "ad":
@@ -236,6 +240,7 @@ export function LeadsTable({
         }
       />
       <DataTable
+        nowrap
         headers={[...visible.map((column) => LABELS.get(column.id) ?? column.id), ""]}
         rows={leads.map((lead) => [
           ...visible.map((column) => cell(lead, column.id, agents)),

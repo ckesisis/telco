@@ -6,18 +6,18 @@ import { parseMonth } from "@/lib/prospecting";
 import { canAccessLead } from "@/lib/services/lead.service";
 
 export const DEFAULT_PROSPECT_SERVICES = [
-  "Σταθερή / Internet",
-  "Κινητή συμβόλαιο",
-  "Τηλεόραση",
+  { name: "Σταθερή / Internet", collectsInstallationAddress: true },
+  { name: "Κινητή συμβόλαιο", collectsInstallationAddress: false },
+  { name: "Τηλεόραση", collectsInstallationAddress: false },
 ];
 
 export async function seedProspectServices(organizationId: string) {
   const existing = await db.prospectService.count({ where: { organizationId } });
   if (existing > 0) return;
   await db.prospectService.createMany({
-    data: DEFAULT_PROSPECT_SERVICES.map((name, index) => ({
+    data: DEFAULT_PROSPECT_SERVICES.map((service, index) => ({
       organizationId,
-      name,
+      ...service,
       sortOrder: index,
     })),
     skipDuplicates: true,
@@ -69,7 +69,7 @@ export async function createProspectService(
 export async function updateProspectService(
   organizationId: string,
   id: string,
-  data: { name?: string; enabled?: boolean }
+  data: { name?: string; enabled?: boolean; collectsInstallationAddress?: boolean }
 ) {
   const service = await db.prospectService.findFirst({ where: { id, organizationId } });
   if (!service) throw new Error("Η υπηρεσία δεν βρέθηκε");
@@ -81,6 +81,9 @@ export async function updateProspectService(
       data: {
         ...(name !== undefined && { name }),
         ...(typeof data.enabled === "boolean" && { enabled: data.enabled }),
+        ...(typeof data.collectsInstallationAddress === "boolean" && {
+          collectsInstallationAddress: data.collectsInstallationAddress,
+        }),
       },
     });
   } catch (err) {
@@ -121,7 +124,15 @@ export type ProspectEntryInput = {
   expiresMonth?: string | null;
   monthlyAmount?: string | number | null;
   notes?: string | null;
+  installStreet?: string | null;
+  installNumber?: string | null;
+  installCity?: string | null;
+  installPostalCode?: string | null;
 };
+
+function readText(value: unknown) {
+  return typeof value === "string" ? value.trim() || null : null;
+}
 
 function readAmount(value: ProspectEntryInput["monthlyAmount"]) {
   if (value == null || value === "") return null;
@@ -152,15 +163,14 @@ export async function saveLeadProspecting(
 
   const services = await db.prospectService.findMany({
     where: { organizationId },
-    select: { id: true },
+    select: { id: true, collectsInstallationAddress: true },
   });
-  const serviceIds = new Set(services.map((service) => service.id));
+  const serviceById = new Map(services.map((service) => [service.id, service]));
   const updatedById = ctx.userId === "api-key" ? null : ctx.userId;
 
   const operations = (entries as ProspectEntryInput[]).map((entry) => {
-    if (!entry || typeof entry.serviceId !== "string" || !serviceIds.has(entry.serviceId)) {
-      throw new Error("Μη έγκυρη υπηρεσία");
-    }
+    const service = entry && typeof entry.serviceId === "string" ? serviceById.get(entry.serviceId) : undefined;
+    if (!service) throw new Error("Μη έγκυρη υπηρεσία");
     const key = { leadId_serviceId: { leadId: lead.id, serviceId: entry.serviceId } };
 
     if (entry.hasContract !== true && entry.hasContract !== false) {
@@ -179,6 +189,10 @@ export async function saveLeadProspecting(
       expiresAt,
       monthlyAmount: hasContract ? readAmount(entry.monthlyAmount) : null,
       notes: entry.notes?.trim() || null,
+      installStreet: service.collectsInstallationAddress ? readText(entry.installStreet) : null,
+      installNumber: service.collectsInstallationAddress ? readText(entry.installNumber) : null,
+      installCity: service.collectsInstallationAddress ? readText(entry.installCity) : null,
+      installPostalCode: service.collectsInstallationAddress ? readText(entry.installPostalCode) : null,
       updatedById,
     };
     return { remove: false as const, key, data, serviceId: entry.serviceId };

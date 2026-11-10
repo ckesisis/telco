@@ -15,6 +15,29 @@ export function wholeAmountDraft(value: string) {
   };
 }
 
+/** Keep a euro amount while typing: up to 2 decimal places, comma or dot. */
+export function amountDraft(value: string) {
+  const cleaned = value.replace(/[^\d.,]/g, "");
+  const match = cleaned.match(/^(\d{0,8})([.,]\d{0,2})?/);
+  return match ? match[0] : "";
+}
+
+/** Accepts a blank value or a non-negative euro amount with up to 2 decimals. */
+export function readAmount(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const raw =
+    typeof value === "number"
+      ? String(value)
+      : typeof value === "string"
+        ? value.trim().replace(",", ".")
+        : "";
+  if (!raw) return null;
+  if (!/^\d{1,8}(\.\d{1,2})?$/.test(raw)) {
+    throw new Error("Μη έγκυρο ποσό");
+  }
+  return Number(raw);
+}
+
 /** Accepts a blank value or a non-negative whole number of euros. */
 export function readWholeAmount(value: unknown): number | null {
   if (value == null || value === "") return null;

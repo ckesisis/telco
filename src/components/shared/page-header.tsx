@@ -36,13 +36,16 @@ export function EmptyState({ message }: { message: string }) {
 export function DataTable({
   headers,
   rows,
+  nowrap = false,
 }: {
   headers: string[];
   rows: React.ReactNode[][];
+  /** Keep every cell on one line; the table scrolls horizontally instead. */
+  nowrap?: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table className={cn("w-full text-sm", nowrap && "whitespace-nowrap")}>
         <thead className="bg-slate-50 text-left text-slate-500">
           <tr>
             {headers.map((header) => (

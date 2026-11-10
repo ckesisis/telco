@@ -14,6 +14,7 @@ import { customerHomeToOrderAddress } from "@/components/customers/customer-form
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -29,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
+import { lineSupportsPortability, PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
 import {
   APPLICATION_TYPE_LABELS,
   PREPAID_APPLICATION_TYPES,
@@ -37,7 +38,7 @@ import {
 } from "@/config/application-types";
 import type { ApplicationType } from "@/generated/prisma/client";
 import { readPortingNumber } from "@/lib/phone";
-import { readWholeAmount, wholeAmountDraft } from "@/lib/utils";
+import { amountDraft, readAmount } from "@/lib/utils";
 
 type Source = { id: string; name: string };
 type Offer = { id: string; name: string; productLine: string; code: string };
@@ -48,6 +49,7 @@ type ApplicationFormState = {
   previousProvider: string;
   offerId: string;
   agreedMonthlyAmount: string;
+  notes: string;
 };
 
 const emptyApplication = (): ApplicationFormState => ({
@@ -57,6 +59,7 @@ const emptyApplication = (): ApplicationFormState => ({
   previousProvider: "",
   offerId: "",
   agreedMonthlyAmount: "",
+  notes: "",
 });
 
 type FieldErrors = Record<string, string>;
@@ -133,6 +136,13 @@ export default function NewOrderForm({
     const current = { ...next[index], [field]: value };
     if (field === "productLine" && value !== next[index].productLine) {
       current.offerId = "";
+      if (!lineSupportsPortability(value)) {
+        current.applicationType = "new_number";
+        current.portingNumber = "";
+        current.previousProvider = "";
+        clearFieldError(applicationFieldKey(index, "portingNumber"));
+        clearFieldError(applicationFieldKey(index, "previousProvider"));
+      }
     }
     if (field === "applicationType" && value === "new_number") {
       current.portingNumber = "";
@@ -189,10 +199,7 @@ export default function NewOrderForm({
       if (!app.offerId) {
         errors[applicationFieldKey(index, "offerId")] = "Επιλέξτε προσφορά";
       }
-      if (
-        app.productLine === "prepaid_mobile" &&
-        app.applicationType === "portability"
-      ) {
+      if (lineSupportsPortability(app.productLine) && app.applicationType === "portability") {
         if (!app.portingNumber.trim()) {
           errors[applicationFieldKey(index, "portingNumber")] =
             "Συμπληρώστε τον αριθμό που θα γίνει φορητότητα";
@@ -208,9 +215,9 @@ export default function NewOrderForm({
           errors[applicationFieldKey(index, "previousProvider")] = "Επιλέξτε προηγούμενο πάροχο";
         }
       }
-      if (app.productLine !== "prepaid_mobile" && app.agreedMonthlyAmount) {
+      if (app.agreedMonthlyAmount) {
         try {
-          readWholeAmount(app.agreedMonthlyAmount);
+          readAmount(app.agreedMonthlyAmount);
         } catch (err) {
           errors[applicationFieldKey(index, "agreedMonthlyAmount")] =
             err instanceof Error ? err.message : "Μη έγκυρο ποσό";
@@ -278,17 +285,18 @@ export default function NewOrderForm({
         shippingAddress: contractDelivery === "courier" ? address : null,
         applications: applications.map((a) => ({
           productLine: a.productLine,
-          applicationType: a.productLine === "prepaid_mobile" ? a.applicationType : null,
+          applicationType: lineSupportsPortability(a.productLine) ? a.applicationType : null,
           portingNumber:
-            a.productLine === "prepaid_mobile" && a.applicationType === "portability"
+            lineSupportsPortability(a.productLine) && a.applicationType === "portability"
               ? readPortingNumber(a.portingNumber)
               : null,
           previousProvider:
-            a.productLine === "prepaid_mobile" && a.applicationType === "portability"
+            lineSupportsPortability(a.productLine) && a.applicationType === "portability"
               ? a.previousProvider || null
               : null,
-          agreedMonthlyAmount: readWholeAmount(a.agreedMonthlyAmount),
+          agreedMonthlyAmount: readAmount(a.agreedMonthlyAmount),
           offerId: a.offerId || null,
+          notes: a.notes.trim() || null,
         })),
       }),
     });
@@ -539,7 +547,7 @@ export default function NewOrderForm({
                     </Select>
                     <FieldError message={fieldErrors[applicationFieldKey(i, "offerId")]} />
                   </div>
-                  {app.productLine === "prepaid_mobile" && (
+                  {lineSupportsPortability(app.productLine) && (
                     <>
                       <div className="space-y-2">
                         <Label>Τύπος Αίτησης</Label>
@@ -591,27 +599,24 @@ export default function NewOrderForm({
                       )}
                     </>
                   )}
-                  {app.productLine !== "prepaid_mobile" && (
-                    <div className="space-y-2">
-                      <Label>Συμφωνημένο ποσό (€)</Label>
-                      <Input
-                        inputMode="numeric"
-                        placeholder="Ακέραιο ποσό"
-                        value={app.agreedMonthlyAmount}
-                        onChange={(e) => {
-                          const next = wholeAmountDraft(e.target.value);
-                          updateApp(i, "agreedMonthlyAmount", next.value);
-                          if (next.error) {
-                            setFieldErrors((prev) => ({
-                              ...prev,
-                              [applicationFieldKey(i, "agreedMonthlyAmount")]: next.error,
-                            }));
-                          }
-                        }}
-                      />
-                      <FieldError message={fieldErrors[applicationFieldKey(i, "agreedMonthlyAmount")]} />
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <Label>Συμφωνημένο ποσό (€)</Label>
+                    <Input
+                      inputMode="decimal"
+                      placeholder="π.χ. 29,99"
+                      value={app.agreedMonthlyAmount}
+                      onChange={(e) => updateApp(i, "agreedMonthlyAmount", amountDraft(e.target.value))}
+                    />
+                    <FieldError message={fieldErrors[applicationFieldKey(i, "agreedMonthlyAmount")]} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Σχόλια</Label>
+                    <Textarea
+                      value={app.notes}
+                      onChange={(e) => updateApp(i, "notes", e.target.value)}
+                      placeholder="Σχόλια για την αίτηση"
+                    />
+                  </div>
                 </div>
               ))}
               <Button type="button" variant="outline" onClick={addApplication}>
