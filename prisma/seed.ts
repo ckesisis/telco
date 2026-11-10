@@ -139,7 +139,7 @@ async function main() {
           code: "POSTPAID_VIP",
           name: "PostPaid VIP",
           productLine: "postpaid_mobile",
-          catalogMonthlyAmount: 29.99,
+          catalogMonthlyAmount: 30,
           enabled: true,
         },
         {
@@ -147,7 +147,7 @@ async function main() {
           code: "FIXED_HOME",
           name: "Fixed Home Line",
           productLine: "fixed_telephony",
-          catalogMonthlyAmount: 19.99,
+          catalogMonthlyAmount: 20,
           enabled: true,
         },
       ],

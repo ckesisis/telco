@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
 import { PRODUCT_LINE_LABELS } from "@/config/product-lines";
+import { APPLICATION_TYPE_LABELS } from "@/config/application-types";
 import { AppStatusSelect } from "@/components/shared/app-status-select";
 
 export default async function OrderDetailPage({
@@ -67,6 +68,12 @@ export default async function OrderDetailPage({
                   <div>
                     <p className="font-medium">{PRODUCT_LINE_LABELS[app.productLine]}</p>
                     <p className="text-sm text-slate-500">{app.offer?.name ?? "—"}</p>
+                    {app.applicationType === "portability" && (
+                      <p className="text-sm text-slate-600">
+                        {APPLICATION_TYPE_LABELS.portability}: {app.portingNumber ?? "—"}
+                        {app.previousProvider ? ` · ${app.previousProvider}` : ""}
+                      </p>
+                    )}
                   </div>
                   <Badge style={{ backgroundColor: app.status.color, color: "#fff" }}>
                     {app.status.name}

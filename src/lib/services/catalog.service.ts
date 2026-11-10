@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import type { ApiContext } from "@/lib/api/handler";
 import { seesAllRecords } from "@/config/roles";
+import { readWholeAmount } from "@/lib/utils";
 
 export async function listSources(organizationId: string) {
   return db.source.findMany({
@@ -74,7 +75,7 @@ export async function createOffer(
       code: data.code,
       name: data.name,
       productLine: data.productLine as never,
-      catalogMonthlyAmount: data.catalogMonthlyAmount,
+      catalogMonthlyAmount: readWholeAmount(data.catalogMonthlyAmount),
       validFrom: data.validFrom,
       validTo: data.validTo,
       enabled: data.enabled ?? true,
@@ -88,9 +89,13 @@ export async function updateOffer(
   id: string,
   data: Record<string, unknown>
 ) {
+  const next = { ...data };
+  if ("catalogMonthlyAmount" in next) {
+    next.catalogMonthlyAmount = readWholeAmount(next.catalogMonthlyAmount);
+  }
   return db.offer.update({
     where: { id, organizationId },
-    data: data as never,
+    data: next as never,
   });
 }
 

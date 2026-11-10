@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
+import { readWholeAmount, wholeAmountDraft } from "@/lib/utils";
 
 type Offer = {
   id: string;
@@ -31,6 +32,8 @@ export function OffersSettings({ offers: initial }: { offers: Offer[] }) {
   const [form, setForm] = useState({
     code: "", name: "", productLine: "prepaid_mobile", catalogMonthlyAmount: "", prepaidGroup: "",
   });
+  const [amountError, setAmountError] = useState("");
+  const [error, setError] = useState("");
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -40,15 +43,20 @@ export function OffersSettings({ offers: initial }: { offers: Offer[] }) {
       body: JSON.stringify({
         type: "offer",
         ...form,
-        catalogMonthlyAmount: form.catalogMonthlyAmount ? parseFloat(form.catalogMonthlyAmount) : null,
+        catalogMonthlyAmount: readWholeAmount(form.catalogMonthlyAmount),
       }),
     });
     if (res.ok) {
       const offer = await res.json();
       setOffers([...offers, offer]);
       setForm({ code: "", name: "", productLine: "prepaid_mobile", catalogMonthlyAmount: "", prepaidGroup: "" });
+      setAmountError("");
+      setError("");
       router.refresh();
+      return;
     }
+    const data = await res.json().catch(() => null);
+    setError(data?.error ?? "Σφάλμα");
   }
 
   return (
@@ -70,7 +78,21 @@ export function OffersSettings({ offers: initial }: { offers: Offer[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1"><Label>Τιμή καταλόγου</Label><Input value={form.catalogMonthlyAmount} onChange={(e) => setForm({ ...form, catalogMonthlyAmount: e.target.value })} /></div>
+            <div className="space-y-1">
+              <Label>Τιμή καταλόγου (€)</Label>
+              <Input
+                inputMode="numeric"
+                value={form.catalogMonthlyAmount}
+                onChange={(e) => {
+                  const next = wholeAmountDraft(e.target.value);
+                  setAmountError(next.error);
+                  setForm({ ...form, catalogMonthlyAmount: next.value });
+                }}
+                placeholder="Ακέραιο ποσό"
+              />
+              {amountError && <p className="text-sm text-red-600">{amountError}</p>}
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
             <Button type="submit">Προσθήκη</Button>
           </form>
         </CardContent>
@@ -80,7 +102,9 @@ export function OffersSettings({ offers: initial }: { offers: Offer[] }) {
         rows={offers.map((o) => [
           o.code, o.name,
           PRODUCT_LINE_LABELS[o.productLine as keyof typeof PRODUCT_LINE_LABELS],
-          o.catalogMonthlyAmount ?? "—",
+          o.catalogMonthlyAmount != null && Number.isInteger(Number(o.catalogMonthlyAmount))
+            ? String(Number(o.catalogMonthlyAmount))
+            : (o.catalogMonthlyAmount ?? "—"),
           o.enabled ? "Ναι" : "Όχι",
         ])}
       />

@@ -59,7 +59,11 @@ export const POST = withAdmin(async (req, ctx) => {
     case "source":
       return jsonOk(await createSource(ctx.organizationId, data));
     case "offer":
-      return jsonOk(await createOffer(ctx.organizationId, data));
+      try {
+        return jsonOk(await createOffer(ctx.organizationId, data));
+      } catch (err) {
+        return jsonError(err instanceof Error ? err.message : "Σφάλμα", 400);
+      }
     case "app-status":
       return jsonOk(await createAppStatus(ctx.organizationId, data));
     case "reorder-statuses":
@@ -96,7 +100,11 @@ export const PATCH = withAdmin(async (req, ctx) => {
     case "source":
       return jsonOk(await updateSource(ctx.organizationId, id, data));
     case "offer":
-      return jsonOk(await updateOffer(ctx.organizationId, id, data));
+      try {
+        return jsonOk(await updateOffer(ctx.organizationId, id, data));
+      } catch (err) {
+        return jsonError(err instanceof Error ? err.message : "Σφάλμα", 400);
+      }
     case "app-status":
       return jsonOk(await updateAppStatus(ctx.organizationId, id, data));
     case "lead-stage":

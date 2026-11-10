@@ -36,6 +36,8 @@ import {
   PREVIOUS_PROVIDERS,
 } from "@/config/application-types";
 import type { ApplicationType } from "@/generated/prisma/client";
+import { readPortingNumber } from "@/lib/phone";
+import { readWholeAmount, wholeAmountDraft } from "@/lib/utils";
 
 type Source = { id: string; name: string };
 type Offer = { id: string; name: string; productLine: string; code: string };
@@ -192,10 +194,26 @@ export default function NewOrderForm({
         app.applicationType === "portability"
       ) {
         if (!app.portingNumber.trim()) {
-          errors[applicationFieldKey(index, "portingNumber")] = "Συμπληρώστε αριθμό φορητότητας";
+          errors[applicationFieldKey(index, "portingNumber")] =
+            "Συμπληρώστε τον αριθμό που θα γίνει φορητότητα";
+        } else {
+          try {
+            readPortingNumber(app.portingNumber);
+          } catch (err) {
+            errors[applicationFieldKey(index, "portingNumber")] =
+              err instanceof Error ? err.message : "Μη έγκυρος αριθμός";
+          }
         }
         if (!app.previousProvider) {
           errors[applicationFieldKey(index, "previousProvider")] = "Επιλέξτε προηγούμενο πάροχο";
+        }
+      }
+      if (app.productLine !== "prepaid_mobile" && app.agreedMonthlyAmount) {
+        try {
+          readWholeAmount(app.agreedMonthlyAmount);
+        } catch (err) {
+          errors[applicationFieldKey(index, "agreedMonthlyAmount")] =
+            err instanceof Error ? err.message : "Μη έγκυρο ποσό";
         }
       }
     });
@@ -263,13 +281,13 @@ export default function NewOrderForm({
           applicationType: a.productLine === "prepaid_mobile" ? a.applicationType : null,
           portingNumber:
             a.productLine === "prepaid_mobile" && a.applicationType === "portability"
-              ? a.portingNumber || null
+              ? readPortingNumber(a.portingNumber)
               : null,
           previousProvider:
             a.productLine === "prepaid_mobile" && a.applicationType === "portability"
               ? a.previousProvider || null
               : null,
-          agreedMonthlyAmount: a.agreedMonthlyAmount ? parseFloat(a.agreedMonthlyAmount) : null,
+          agreedMonthlyAmount: readWholeAmount(a.agreedMonthlyAmount),
           offerId: a.offerId || null,
         })),
       }),
@@ -542,8 +560,10 @@ export default function NewOrderForm({
                       {app.applicationType === "portability" && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Αριθμός Φορητότητας *</Label>
+                            <Label>Αριθμός προς φορητότητα *</Label>
                             <Input
+                              inputMode="tel"
+                              placeholder="69xxxxxxxx ή 2xxxxxxxxx"
                               value={app.portingNumber}
                               onChange={(e) => updateApp(i, "portingNumber", e.target.value)}
                               required
@@ -573,8 +593,23 @@ export default function NewOrderForm({
                   )}
                   {app.productLine !== "prepaid_mobile" && (
                     <div className="space-y-2">
-                      <Label>Συμφωνημένο ποσό</Label>
-                      <Input value={app.agreedMonthlyAmount} onChange={(e) => updateApp(i, "agreedMonthlyAmount", e.target.value)} />
+                      <Label>Συμφωνημένο ποσό (€)</Label>
+                      <Input
+                        inputMode="numeric"
+                        placeholder="Ακέραιο ποσό"
+                        value={app.agreedMonthlyAmount}
+                        onChange={(e) => {
+                          const next = wholeAmountDraft(e.target.value);
+                          updateApp(i, "agreedMonthlyAmount", next.value);
+                          if (next.error) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              [applicationFieldKey(i, "agreedMonthlyAmount")]: next.error,
+                            }));
+                          }
+                        }}
+                      />
+                      <FieldError message={fieldErrors[applicationFieldKey(i, "agreedMonthlyAmount")]} />
                     </div>
                   )}
                 </div>

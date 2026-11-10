@@ -5,6 +5,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Whole-euro draft. A decimal separator is rejected and the digits before it are kept. */
+export function wholeAmountDraft(value: string) {
+  const decimal = /[.,]/.test(value);
+  const digits = (decimal ? value.split(/[.,]/)[0] : value).replace(/\D/g, "").slice(0, 8);
+  return {
+    value: digits,
+    error: decimal ? "Το ποσό δεν δέχεται δεκαδικά" : "",
+  };
+}
+
+/** Accepts a blank value or a non-negative whole number of euros. */
+export function readWholeAmount(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const raw = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  if (!/^\d{1,8}$/.test(raw)) {
+    throw new Error("Το ποσό πρέπει να είναι ακέραιος αριθμός");
+  }
+  return Number(raw);
+}
+
 export function formatCurrency(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === "") return "—";
   const num = typeof value === "string" ? parseFloat(value) : value;

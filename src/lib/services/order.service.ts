@@ -8,7 +8,10 @@ import {
 import { canAgentSeeRecord } from "@/lib/services/catalog.service";
 import { getConvertedLeadStageId } from "@/lib/services/lead-status.service";
 import { PRODUCT_LINE_LABELS, PRODUCT_LINES } from "@/config/product-lines";
+import { readPreviousProvider } from "@/config/application-types";
 import { seesAllRecords } from "@/config/roles";
+import { readPortingNumber } from "@/lib/phone";
+import { readWholeAmount } from "@/lib/utils";
 
 type ApplicationInput = {
   productLine: string;
@@ -126,6 +129,20 @@ export async function createOrder(
     throw new Error("Απαιτείται διεύθυνση αποστολής για courier");
   }
 
+  const applications = data.applications.map((app) => {
+    const agreedMonthlyAmount = readWholeAmount(app.agreedMonthlyAmount);
+    if (app.applicationType !== "portability") {
+      return { ...app, agreedMonthlyAmount, portingNumber: null, previousProvider: null };
+    }
+    const portingNumber = readPortingNumber(app.portingNumber);
+    if (!portingNumber) {
+      throw new Error("Συμπληρώστε τον αριθμό που θα γίνει φορητότητα");
+    }
+    const previousProvider = readPreviousProvider(app.previousProvider);
+    if (!previousProvider) throw new Error("Επιλέξτε προηγούμενο πάροχο");
+    return { ...app, agreedMonthlyAmount, portingNumber, previousProvider };
+  });
+
   const defaultStatusId = await getDefaultAppStatusId(organizationId);
   const orderRef = await generateOrderRef(organizationId);
 
@@ -153,7 +170,7 @@ export async function createOrder(
       },
     });
 
-    for (const app of data.applications) {
+    for (const app of applications) {
       let offerSnapshot: object | undefined;
       if (app.offerId) {
         const offer = await tx.offer.findFirst({

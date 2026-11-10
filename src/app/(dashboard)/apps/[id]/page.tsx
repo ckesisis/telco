@@ -49,7 +49,7 @@ export default async function AppDetailPage({
             </p>
             {app.applicationType === "portability" && (
               <>
-                <p><span className="text-slate-500">Αριθμός Φορητότητας:</span> {app.portingNumber ?? "—"}</p>
+                <p><span className="text-slate-500">Αριθμός προς φορητότητα:</span> {app.portingNumber ?? "—"}</p>
                 <p><span className="text-slate-500">Προηγούμενος Πάροχος:</span> {app.previousProvider ?? "—"}</p>
               </>
             )}
