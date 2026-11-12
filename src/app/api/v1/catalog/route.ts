@@ -106,7 +106,11 @@ export const PATCH = withAdmin(async (req, ctx) => {
         return jsonError(err instanceof Error ? err.message : "Σφάλμα", 400);
       }
     case "app-status":
-      return jsonOk(await updateAppStatus(ctx.organizationId, id, data));
+      try {
+        return jsonOk(await updateAppStatus(ctx.organizationId, id, data));
+      } catch (err) {
+        return jsonError(err instanceof Error ? err.message : "Σφάλμα", 400);
+      }
     case "lead-stage":
       try {
         return jsonOk(await updateLeadStage(ctx.organizationId, id, data));

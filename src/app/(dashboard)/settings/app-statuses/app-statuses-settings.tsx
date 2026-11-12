@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,19 +37,96 @@ type Status = {
   isSuccess: boolean;
 };
 
-function SortableStatus({ status }: { status: Status }) {
+function SortableStatus({
+  status,
+  onSaved,
+}: {
+  status: Status;
+  onSaved: (status: Status) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: status.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(status.name);
+  const [color, setColor] = useState(status.color);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function startEdit() {
+    setName(status.name);
+    setColor(status.color);
+    setError("");
+    setEditing(true);
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    const res = await fetch("/api/v1/catalog", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "app-status", id: status.id, name, color }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Η αποθήκευση απέτυχε");
+      return;
+    }
+    onSaved(await res.json());
+    setEditing(false);
+  }
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-3 rounded-lg border bg-white p-3">
-      <button {...attributes} {...listeners} className="cursor-grab text-slate-400">
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <Badge style={{ backgroundColor: status.color, color: "#fff" }}>{status.name}</Badge>
-      {status.isDefault && <span className="text-xs text-slate-500">Προεπιλογή</span>}
-      {status.isSuccess && <span className="text-xs text-green-600">Επιτυχία</span>}
-      {status.isTerminal && <span className="text-xs text-red-600">Τερματική</span>}
+    <div ref={setNodeRef} style={style} className="rounded-lg border bg-white p-3">
+      <div className="flex items-center gap-3">
+        <button type="button" {...attributes} {...listeners} className="cursor-grab text-slate-400">
+          <GripVertical className="h-4 w-4" />
+        </button>
+        {editing ? (
+          <form onSubmit={handleSave} className="flex flex-1 items-center gap-2">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              aria-label="Όνομα κατάστασης"
+              autoFocus
+              required
+            />
+            <Input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              aria-label="Χρώμα"
+              className="h-10 w-16 shrink-0"
+            />
+            <Button type="submit" size="sm" disabled={saving}>
+              {saving ? "Αποθήκευση..." : "Αποθήκευση"}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>
+              Άκυρο
+            </Button>
+          </form>
+        ) : (
+          <>
+            <Badge style={{ backgroundColor: status.color, color: "#fff" }}>{status.name}</Badge>
+            {status.isDefault && <span className="text-xs text-slate-500">Προεπιλογή</span>}
+            {status.isSuccess && <span className="text-xs text-green-600">Επιτυχία</span>}
+            {status.isTerminal && <span className="text-xs text-red-600">Τερματική</span>}
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="ml-auto"
+              aria-label={`Μετονομασία ${status.name}`}
+              onClick={startEdit}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );
 }
@@ -116,7 +193,16 @@ export function AppStatusesSettings({ statuses: initial }: { statuses: Status[] 
         <SortableContext items={statuses.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
             {statuses.map((status) => (
-              <SortableStatus key={status.id} status={status} />
+              <SortableStatus
+                key={status.id}
+                status={status}
+                onSaved={(saved) => {
+                  setStatuses((prev) =>
+                    prev.map((s) => (s.id === saved.id ? { ...s, name: saved.name, color: saved.color } : s))
+                  );
+                  router.refresh();
+                }}
+              />
             ))}
           </div>
         </SortableContext>

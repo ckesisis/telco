@@ -6,6 +6,10 @@ import {
   listApplications,
   getApplication,
   updateApplicationStatus,
+  updateOrder,
+  updateApplicationDetails,
+  addOrderShipment,
+  deleteOrderShipment,
 } from "@/lib/services/order.service";
 
 export const GET = withAuth(async (req, ctx) => {
@@ -46,6 +50,19 @@ export const POST = withAuth(async (req, ctx) => {
         body
       );
       return jsonOk(app);
+    }
+    if (body.action === "update-order") {
+      return jsonOk(await updateOrder(ctx.organizationId, ctx, body.id, body));
+    }
+    if (body.action === "update-application") {
+      return jsonOk(await updateApplicationDetails(ctx.organizationId, ctx, body.id, body));
+    }
+    if (body.action === "add-shipment") {
+      return jsonOk(await addOrderShipment(ctx.organizationId, ctx, body.orderId, body), 201);
+    }
+    if (body.action === "delete-shipment") {
+      await deleteOrderShipment(ctx.organizationId, ctx, body.id);
+      return jsonOk({ ok: true });
     }
     const order = await createOrder(ctx.organizationId, ctx, body);
     return jsonOk(order, 201);

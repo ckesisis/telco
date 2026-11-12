@@ -2,9 +2,18 @@ import { DataTable } from "@/components/shared/page-header";
 import { AppStatusSelect } from "@/components/shared/app-status-select";
 import { CopyButton } from "@/components/shared/copy-field";
 import { APPLICATION_TYPE_LABELS } from "@/config/application-types";
-import { PRODUCT_LINE_LABELS } from "@/config/product-lines";
+import {
+  lineHasApplicationNumber,
+  lineHasSimCard,
+  PRODUCT_LINE_LABELS,
+} from "@/config/product-lines";
 import type { getOrder } from "@/lib/services/order.service";
 import { formatDateTime } from "@/lib/utils";
+import { ApplicationEditDialog } from "@/components/orders/application-edit-dialog";
+import {
+  toEditableApplication,
+  type EditableOffer,
+} from "@/components/orders/editable-application";
 
 type Application = NonNullable<Awaited<ReturnType<typeof getOrder>>>["applications"][number];
 type Status = { id: string; name: string; color: string };
@@ -71,6 +80,30 @@ function columns(statuses: Status[]): Column[] {
         </div>
       ),
     },
+    {
+      header: "Κωδικός Καταχώρησης",
+      cell: (app) => <Copyable label="Κωδικός Καταχώρησης" value={app.registrationCode} />,
+    },
+    {
+      header: "Αρ. Αίτησης",
+      show: (apps) => apps.some((app) => lineHasApplicationNumber(app.productLine)),
+      cell: (app) =>
+        lineHasApplicationNumber(app.productLine) ? (
+          <Copyable label="Αρ. Αίτησης" value={app.applicationNumber} />
+        ) : (
+          <span className="text-slate-300">n/a</span>
+        ),
+    },
+    {
+      header: "Κάρτα SIM",
+      show: (apps) => apps.some((app) => lineHasSimCard(app.productLine)),
+      cell: (app) =>
+        lineHasSimCard(app.productLine) ? (
+          <Copyable label="Κάρτα SIM" value={app.simCard} />
+        ) : (
+          <span className="text-slate-300">n/a</span>
+        ),
+    },
     { header: "Αρ. Φορητότητας", cell: (app) => <Copyable label="Αρ. Φορητότητας" value={app.portingNumber} /> },
     { header: "Πάροχος", cell: (app) => <Plain value={app.previousProvider} /> },
     { header: "MSISDN", cell: (app) => <Copyable label="MSISDN" value={app.msisdn} /> },
@@ -123,14 +156,36 @@ function columns(statuses: Status[]): Column[] {
   ];
 }
 
+function editColumn(offers: EditableOffer[], canEditBackOffice: boolean): Column {
+  return {
+    header: "",
+    cell: (app, index) => (
+      <ApplicationEditDialog
+        application={toEditableApplication(app)}
+        offers={offers}
+        canEditBackOffice={canEditBackOffice}
+        title={`Επεξεργασία Αίτησης #${index + 1}`}
+      />
+    ),
+  };
+}
+
 export function OrderApplicationsTable({
   applications,
   statuses,
+  offers,
+  canEdit,
+  canEditBackOffice,
 }: {
   applications: Application[];
   statuses: Status[];
+  offers: EditableOffer[];
+  canEdit: boolean;
+  canEditBackOffice: boolean;
 }) {
-  const visible = columns(statuses).filter((column) => !column.show || column.show(applications));
+  const visible = [...columns(statuses), ...(canEdit ? [editColumn(offers, canEditBackOffice)] : [])].filter(
+    (column) => !column.show || column.show(applications)
+  );
   return (
     <DataTable
       headers={visible.map((column) => column.header)}

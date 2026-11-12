@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DIALOG_BODY_CLASS, DIALOG_FOOTER_CLASS } from "@/components/ui/dialog-layout";
+import { cn } from "@/lib/utils";
 import type { CustomerOption } from "@/components/customers/customer-search-select";
 import {
   CustomerFormFields,
@@ -17,6 +19,8 @@ type CustomerCreateFormProps = {
   onCancel?: () => void;
   submitLabel?: string;
   defaultPhone?: string;
+  /** "dialog" scrolls the fields and keeps the actions pinned at the bottom. */
+  layout?: "page" | "dialog";
 };
 
 export function CustomerCreateForm({
@@ -24,7 +28,9 @@ export function CustomerCreateForm({
   onCancel,
   submitLabel = "Αποθήκευση",
   defaultPhone = "",
+  layout = "page",
 }: CustomerCreateFormProps) {
+  const inDialog = layout === "dialog";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState<CustomerFormValues>({
@@ -32,6 +38,7 @@ export function CustomerCreateForm({
     lastName: "",
     fatherName: "",
     vatNumber: "",
+    taxOffice: "",
     contactPhone: defaultPhone,
     documentType: "id_card" as DocumentType,
     documentNumber: "",
@@ -82,10 +89,19 @@ export function CustomerCreateForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <CustomerFormFields form={form} onChange={setForm} />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex justify-end gap-2">
+    <form
+      onSubmit={handleSubmit}
+      className={inDialog ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}
+    >
+      <div className={cn(inDialog && DIALOG_BODY_CLASS, "space-y-4")}>
+        <CustomerFormFields form={form} onChange={setForm} />
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        )}
+      </div>
+      <div className={inDialog ? DIALOG_FOOTER_CLASS : "flex justify-end gap-2"}>
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
             Ακύρωση

@@ -21,6 +21,7 @@ type Customer = {
   lastName: string;
   fatherName: string | null;
   vatNumber: string | null;
+  taxOffice: string | null;
   contactPhone: string;
   documentType: DocumentType;
   documentNumber: string | null;
@@ -121,6 +122,7 @@ export function CustomerDetailsCard({
             </p>
             <p><span className="text-slate-500">Τηλέφωνο:</span> {customer.contactPhone}</p>
             <p><span className="text-slate-500">ΑΦΜ:</span> {customer.vatNumber ?? "—"}</p>
+            <p><span className="text-slate-500">ΔΟΥ:</span> {customer.taxOffice ?? "—"}</p>
             <p>
               <span className="text-slate-500">Έγγραφο:</span>{" "}
               {DOCUMENT_TYPE_LABELS[customer.documentType]}

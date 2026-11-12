@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { DIALOG_HEADER_CLASS, DIALOG_SCROLL_LAYOUT_CLASS } from "@/components/ui/dialog-layout";
 import {
   Dialog,
   DialogContent,
@@ -636,8 +637,8 @@ export default function NewOrderForm({
       </Card>
 
       <Dialog open={createCustomerOpen} onOpenChange={setCreateCustomerOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className={DIALOG_SCROLL_LAYOUT_CLASS}>
+          <DialogHeader className={DIALOG_HEADER_CLASS}>
             <DialogTitle>Νέος Πελάτης</DialogTitle>
             <DialogDescription>
               Δημιουργήστε νέο πελάτη και επιλέξτε τον αυτόματα για την παραγγελία.
@@ -645,6 +646,7 @@ export default function NewOrderForm({
           </DialogHeader>
           <CustomerCreateForm
             key={createCustomerOpen ? "open" : "closed"}
+            layout="dialog"
             onCancel={() => setCreateCustomerOpen(false)}
             onSuccess={(customer) => {
               setCustomers((prev) => [customer, ...prev]);
@@ -656,8 +658,8 @@ export default function NewOrderForm({
       </Dialog>
 
       <Dialog open={editCustomerOpen} onOpenChange={setEditCustomerOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className={DIALOG_SCROLL_LAYOUT_CLASS}>
+          <DialogHeader className={DIALOG_HEADER_CLASS}>
             <DialogTitle>Επεξεργασία Πελάτη</DialogTitle>
             <DialogDescription>
               Ενημερώστε τα στοιχεία του επιλεγμένου πελάτη.
@@ -668,6 +670,7 @@ export default function NewOrderForm({
               key={editCustomerOpen ? customerId : "closed"}
               customerId={customerId}
               sources={sources}
+              layout="dialog"
               onCancel={() => setEditCustomerOpen(false)}
               onSuccess={(customer) => {
                 setCustomers((prev) =>

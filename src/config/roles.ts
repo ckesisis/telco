@@ -57,3 +57,29 @@ export function canAccessApiPath(role: string, pathname: string) {
   if (isBackOfficeRole(role) && isReportingPath(pathname, "/api/v1/reporting")) return false;
   return true;
 }
+
+/**
+ * Admins and back office edit every order and application; a sales agent
+ * edits only the orders they sold (by seller or their sales code).
+ */
+export function canEditOrder(
+  ctx: { role: string; userId: string; salesCode: string | null },
+  order: { sellerId: string | null; salesCode: string | null }
+) {
+  if (seesAllRecords(ctx.role)) return true;
+  if (order.sellerId && order.sellerId === ctx.userId) return true;
+  return Boolean(ctx.salesCode && order.salesCode === ctx.salesCode);
+}
+
+/** Only admins and back office register courier tracking numbers. */
+export function canManageShipments(role: string) {
+  return seesAllRecords(role);
+}
+
+/**
+ * Only admins and back office fill the provider-side fields of an app
+ * (Κωδικός Καταχώρησης, Αρ. Αίτησης, Κάρτα SIM).
+ */
+export function canEditBackOfficeFields(role: string) {
+  return seesAllRecords(role);
+}

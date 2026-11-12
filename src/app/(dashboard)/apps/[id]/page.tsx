@@ -2,11 +2,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuthContext } from "@/lib/tenancy";
 import { getApplication } from "@/lib/services/order.service";
-import { listAppStatuses } from "@/lib/services/catalog.service";
+import { listAppStatuses, listOffers } from "@/lib/services/catalog.service";
+import { canEditBackOfficeFields, canEditOrder } from "@/config/roles";
+import { ApplicationEditDialog } from "@/components/orders/application-edit-dialog";
+import { editableOffers, toEditableApplication } from "@/components/orders/editable-application";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PRODUCT_LINE_LABELS } from "@/config/product-lines";
+import {
+  lineHasApplicationNumber,
+  lineHasSimCard,
+  PRODUCT_LINE_LABELS,
+} from "@/config/product-lines";
 import { APPLICATION_TYPE_LABELS } from "@/config/application-types";
 import { formatDateTime, formatCurrency } from "@/lib/utils";
 import { AppStatusSelect } from "@/components/shared/app-status-select";
@@ -18,11 +25,13 @@ export default async function AppDetailPage({
 }) {
   const { id } = await params;
   const ctx = await requireAuthContext();
-  const [app, statuses] = await Promise.all([
+  const [app, statuses, activeOffers] = await Promise.all([
     getApplication(ctx.organizationId, id),
     listAppStatuses(ctx.organizationId),
+    listOffers(ctx.organizationId, true),
   ]);
   if (!app) notFound();
+  const canEdit = canEditOrder(ctx, app.order);
 
   const snapshot = app.offerSnapshot as Record<string, unknown> | null;
 
@@ -32,9 +41,22 @@ export default async function AppDetailPage({
         title={PRODUCT_LINE_LABELS[app.productLine]}
         description={app.offer?.name ?? "—"}
         action={
-          <Badge style={{ backgroundColor: app.status.color, color: "#fff" }}>
-            {app.status.name}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge style={{ backgroundColor: app.status.color, color: "#fff" }}>
+              {app.status.name}
+            </Badge>
+            {canEdit && (
+              <ApplicationEditDialog
+                trigger="button"
+                canEditBackOffice={canEditBackOfficeFields(ctx.role)}
+                application={toEditableApplication(app)}
+                offers={editableOffers(
+                  activeOffers.map(({ id, name, productLine }) => ({ id, name, productLine })),
+                  [app.offer]
+                )}
+              />
+            )}
+          </div>
         }
       />
 
@@ -43,6 +65,15 @@ export default async function AppDetailPage({
           <CardHeader><CardTitle>Στοιχεία Αίτησης</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p><span className="text-slate-500">MSISDN:</span> {app.msisdn ?? "—"}</p>
+            <p>
+              <span className="text-slate-500">Κωδικός Καταχώρησης:</span> {app.registrationCode ?? "—"}
+            </p>
+            {lineHasApplicationNumber(app.productLine) && (
+              <p><span className="text-slate-500">Αρ. Αίτησης:</span> {app.applicationNumber ?? "—"}</p>
+            )}
+            {lineHasSimCard(app.productLine) && (
+              <p><span className="text-slate-500">Κάρτα SIM:</span> {app.simCard ?? "—"}</p>
+            )}
             <p>
               <span className="text-slate-500">Τύπος:</span>{" "}
               {app.applicationType ? APPLICATION_TYPE_LABELS[app.applicationType] : "—"}

@@ -104,6 +104,7 @@ export async function createCustomer(
     lastName: string;
     fatherName?: string | null;
     vatNumber?: string | null;
+    taxOffice?: string | null;
     documentType?: string;
     documentNumber?: string | null;
     documentIssuer?: string | null;
@@ -133,6 +134,7 @@ export async function createCustomer(
       lastName: data.lastName,
       fatherName: data.fatherName,
       vatNumber: data.vatNumber || null,
+      taxOffice: data.taxOffice?.trim() || null,
       documentType: (data.documentType as never) ?? "id_card",
       documentNumber: data.documentNumber,
       documentIssuer: data.documentIssuer,
@@ -158,6 +160,9 @@ export async function updateCustomer(
 ) {
   const payload = { ...data };
   if ("vatNumber" in payload && !payload.vatNumber) payload.vatNumber = null;
+  if ("taxOffice" in payload) {
+    payload.taxOffice = typeof payload.taxOffice === "string" ? payload.taxOffice.trim() || null : null;
+  }
   if ("sourceId" in payload && !payload.sourceId) payload.sourceId = null;
   if ("fatherName" in payload && !payload.fatherName) payload.fatherName = null;
   if ("documentNumber" in payload && !payload.documentNumber) payload.documentNumber = null;

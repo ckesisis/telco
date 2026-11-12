@@ -18,6 +18,7 @@ export type CustomerFormValues = {
   lastName: string;
   fatherName: string;
   vatNumber: string;
+  taxOffice: string;
   contactPhone: string;
   documentType: DocumentType;
   documentNumber: string;
@@ -46,7 +47,7 @@ export function CustomerFormFields({ form, onChange, sources }: CustomerFormFiel
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Όνομα *</Label>
           <Input
@@ -71,15 +72,15 @@ export function CustomerFormFields({ form, onChange, sources }: CustomerFormFiel
           onChange={(e) => setField("fatherName", e.target.value)}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Τηλέφωνο *</Label>
-          <Input
-            value={form.contactPhone}
-            onChange={(e) => setField("contactPhone", e.target.value)}
-            required
-          />
-        </div>
+      <div className="space-y-2">
+        <Label>Τηλέφωνο *</Label>
+        <Input
+          value={form.contactPhone}
+          onChange={(e) => setField("contactPhone", e.target.value)}
+          required
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>ΑΦΜ</Label>
           <Input
@@ -87,8 +88,16 @@ export function CustomerFormFields({ form, onChange, sources }: CustomerFormFiel
             onChange={(e) => setField("vatNumber", e.target.value)}
           />
         </div>
+        <div className="space-y-2">
+          <Label>ΔΟΥ</Label>
+          <Input
+            value={form.taxOffice}
+            onChange={(e) => setField("taxOffice", e.target.value)}
+            placeholder="π.χ. Α' Αθηνών"
+          />
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Τύπος Εγγράφου</Label>
           <Select
@@ -125,7 +134,7 @@ export function CustomerFormFields({ form, onChange, sources }: CustomerFormFiel
 
       <div className="space-y-3 border-t border-slate-200 pt-4">
         <p className="text-sm font-medium text-slate-900">Διεύθυνση Κατοικίας</p>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Οδός</Label>
             <Input
@@ -201,6 +210,7 @@ export function customerToFormValues(customer: {
   lastName: string;
   fatherName?: string | null;
   vatNumber?: string | null;
+  taxOffice?: string | null;
   contactPhone: string;
   documentType: DocumentType;
   documentNumber?: string | null;
@@ -218,6 +228,7 @@ export function customerToFormValues(customer: {
     lastName: customer.lastName,
     fatherName: customer.fatherName ?? "",
     vatNumber: customer.vatNumber ?? "",
+    taxOffice: customer.taxOffice ?? "",
     contactPhone: customer.contactPhone,
     documentType: customer.documentType,
     documentNumber: customer.documentNumber ?? "",
@@ -238,6 +249,7 @@ export function formValuesToPayload(form: CustomerFormValues) {
     lastName: form.lastName,
     fatherName: form.fatherName || null,
     vatNumber: form.vatNumber || null,
+    taxOffice: form.taxOffice.trim() || null,
     contactPhone: form.contactPhone,
     documentType: form.documentType,
     documentNumber: form.documentNumber || null,

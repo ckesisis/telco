@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DIALOG_BODY_CLASS, DIALOG_FOOTER_CLASS } from "@/components/ui/dialog-layout";
+import { cn } from "@/lib/utils";
 import type { CustomerOption } from "@/components/customers/customer-search-select";
 import {
   CustomerFormFields,
@@ -18,6 +20,8 @@ type CustomerEditFormProps = {
   sources?: Source[];
   onSuccess: (customer: CustomerOption) => void;
   onCancel?: () => void;
+  /** "dialog" scrolls the fields and keeps the actions pinned at the bottom. */
+  layout?: "page" | "dialog";
 };
 
 function toCustomerOption(customer: {
@@ -55,7 +59,9 @@ export function CustomerEditForm({
   sources,
   onSuccess,
   onCancel,
+  layout = "page",
 }: CustomerEditFormProps) {
+  const inDialog = layout === "dialog";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -122,12 +128,16 @@ export function CustomerEditForm({
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Φόρτωση στοιχείων πελάτη...</p>;
+    return (
+      <p className={cn(inDialog && DIALOG_BODY_CLASS, "text-sm text-slate-500")}>
+        Φόρτωση στοιχείων πελάτη...
+      </p>
+    );
   }
 
   if (!form) {
     return (
-      <div className="space-y-4">
+      <div className={cn(inDialog && DIALOG_BODY_CLASS, "space-y-4")}>
         {error && <p className="text-sm text-red-600">{error}</p>}
         {onCancel && (
           <div className="flex justify-end">
@@ -141,10 +151,19 @@ export function CustomerEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <CustomerFormFields form={form} onChange={setForm} sources={sources} />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex justify-end gap-2">
+    <form
+      onSubmit={handleSubmit}
+      className={inDialog ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}
+    >
+      <div className={cn(inDialog && DIALOG_BODY_CLASS, "space-y-4")}>
+        <CustomerFormFields form={form} onChange={setForm} sources={sources} />
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        )}
+      </div>
+      <div className={inDialog ? DIALOG_FOOTER_CLASS : "flex justify-end gap-2"}>
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
             Ακύρωση

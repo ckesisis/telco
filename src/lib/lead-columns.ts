@@ -1,3 +1,5 @@
+import { defaultColumns, normalizeColumns } from "@/lib/table-columns";
+
 export const LEAD_COLUMNS = [
   { id: "phone", label: "Τηλέφωνο", defaultVisible: true },
   { id: "name", label: "Όνομα", defaultVisible: true },
@@ -22,38 +24,10 @@ export type LeadColumnPref = {
   visible: boolean;
 };
 
-const COLUMN_IDS = new Set<string>(LEAD_COLUMNS.map((column) => column.id));
-
 export function defaultLeadColumns(): LeadColumnPref[] {
-  return LEAD_COLUMNS.map((column) => ({
-    id: column.id,
-    visible: column.defaultVisible,
-  }));
+  return defaultColumns(LEAD_COLUMNS) as LeadColumnPref[];
 }
 
 export function normalizeLeadColumns(value: unknown): LeadColumnPref[] {
-  const incoming = Array.isArray(value) ? value : [];
-  const result: LeadColumnPref[] = [];
-  const seen = new Set<string>();
-
-  for (const item of incoming) {
-    if (!item || typeof item !== "object") continue;
-    const id = "id" in item ? item.id : null;
-    const visible = "visible" in item ? item.visible : true;
-    if (typeof id !== "string" || !COLUMN_IDS.has(id) || seen.has(id)) continue;
-    seen.add(id);
-    result.push({ id: id as LeadColumnId, visible: visible !== false });
-  }
-
-  for (const column of LEAD_COLUMNS) {
-    if (!seen.has(column.id)) {
-      result.push({ id: column.id, visible: column.defaultVisible });
-    }
-  }
-
-  if (!result.some((column) => column.visible)) {
-    return defaultLeadColumns();
-  }
-
-  return result;
+  return normalizeColumns(LEAD_COLUMNS, value) as LeadColumnPref[];
 }

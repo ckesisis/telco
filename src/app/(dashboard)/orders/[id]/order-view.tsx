@@ -4,7 +4,9 @@ import { CopyFieldGroup, type CopyFieldDef } from "@/components/shared/copy-fiel
 import { DOCUMENT_TYPE_LABELS } from "@/config/document-types";
 import type { getOrder } from "@/lib/services/order.service";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import type { EditableOffer } from "@/components/orders/editable-application";
 import { formatAmount, OrderApplicationsTable, OrderHistoryTable } from "./order-applications-table";
+import { OrderCourier } from "./order-courier";
 
 type OrderRecord = NonNullable<Awaited<ReturnType<typeof getOrder>>>;
 type Status = { id: string; name: string; color: string };
@@ -36,6 +38,7 @@ function customerFields(customer: OrderRecord["customer"]): CopyFieldDef[] {
     { label: "Όνομα", value: customer.firstName },
     { label: "Πατρώνυμο", value: customer.fatherName },
     { label: "ΑΦΜ", value: customer.vatNumber },
+    { label: "ΔΟΥ", value: customer.taxOffice },
     { label: "Ημ. Γέννησης", value: customer.birthDate ? formatDate(customer.birthDate) : null },
     { label: "Χώρα Γέννησης", value: customer.birthCountry },
     { label: "Τύπος Εγγράφου", value: DOCUMENT_TYPE_LABELS[customer.documentType] },
@@ -95,7 +98,21 @@ function leadFields(lead: NonNullable<OrderRecord["lead"]>): CopyFieldDef[] {
 
 const linkClass = "inline-flex h-7 items-center rounded px-2 text-xs font-medium text-blue-600 hover:bg-blue-50";
 
-export function OrderView({ order, statuses }: { order: OrderRecord; statuses: Status[] }) {
+export function OrderView({
+  order,
+  statuses,
+  offers,
+  canEdit,
+  canEditBackOffice,
+  canManageShipments,
+}: {
+  order: OrderRecord;
+  statuses: Status[];
+  offers: EditableOffer[];
+  canEdit: boolean;
+  canEditBackOffice: boolean;
+  canManageShipments: boolean;
+}) {
   const { customer, lead, applications } = order;
   const total = applications.reduce(
     (sum, app) => sum + Number(app.agreedMonthlyAmount ?? app.offer?.catalogMonthlyAmount ?? 0),
@@ -122,6 +139,20 @@ export function OrderView({ order, statuses }: { order: OrderRecord; statuses: S
             />
             <CopyFieldGroup title="Διεύθυνση Κατοικίας" fields={homeFields(customer)} />
           </Card>
+          <Card>
+            <OrderCourier
+              orderId={order.id}
+              canManage={canManageShipments}
+              shipments={order.shipments.map((shipment) => ({
+                id: shipment.id,
+                carrier: shipment.carrier,
+                trackingNumber: shipment.trackingNumber,
+                comments: shipment.comments,
+                createdBy: shipment.createdBy?.name ?? null,
+                createdAt: formatDateTime(shipment.createdAt),
+              }))}
+            />
+          </Card>
           {lead && (
             <Card>
               <CopyFieldGroup
@@ -143,7 +174,13 @@ export function OrderView({ order, statuses }: { order: OrderRecord; statuses: S
             Σύνολο ποσών: <span className="font-semibold tabular-nums text-slate-900">{formatAmount(total)} €</span>
           </p>
         </div>
-        <OrderApplicationsTable applications={applications} statuses={statuses} />
+        <OrderApplicationsTable
+          applications={applications}
+          statuses={statuses}
+          offers={offers}
+          canEdit={canEdit}
+          canEditBackOffice={canEditBackOffice}
+        />
       </section>
 
       <section className="space-y-3">

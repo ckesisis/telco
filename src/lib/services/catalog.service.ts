@@ -146,15 +146,21 @@ export async function updateAppStatus(
   id: string,
   data: Record<string, unknown>
 ) {
-  if (data.isDefault) {
-    await db.appStatus.updateMany({
-      where: { organizationId },
-      data: { isDefault: false },
-    });
+  const update: { name?: string; color?: string } = {};
+  if (data.name !== undefined) {
+    const name = typeof data.name === "string" ? data.name.trim() : "";
+    if (!name) throw new Error("Συμπληρώστε όνομα");
+    update.name = name;
+  }
+  if (data.color !== undefined) {
+    if (typeof data.color !== "string" || !/^#[0-9a-f]{6}$/i.test(data.color)) {
+      throw new Error("Μη έγκυρο χρώμα");
+    }
+    update.color = data.color;
   }
   return db.appStatus.update({
     where: { id, organizationId },
-    data: data as never,
+    data: update,
   });
 }
 
