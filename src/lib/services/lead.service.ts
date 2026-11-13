@@ -1,7 +1,12 @@
 import { db } from "@/lib/db";
 import type { ApiContext } from "@/lib/api/handler";
 import { findCustomerByPhone, createCustomer } from "@/lib/services/customer.service";
-import { pickDistributedAgent } from "@/lib/services/lead-distribution.service";
+import {
+  getActiveAgentIds,
+  pickDistributedAgent,
+  planBatchAssignment,
+  validateShares,
+} from "@/lib/services/lead-distribution.service";
 import { isMetaChannel } from "@/config/source-channels";
 import {
   EMPTY_ATTRIBUTION,
@@ -387,9 +392,32 @@ export async function importLeads(
     utmCampaign?: string;
     utmContent?: string;
     utmTerm?: string;
-  }>
+  }>,
+  shares?: Array<{ userId: string; percent: number }>
 ) {
-  const results = { created: 0, skipped: 0, errors: [] as string[] };
+  const results = {
+    created: 0,
+    skipped: 0,
+    errors: [] as string[],
+    assigned: {} as Record<string, number>,
+  };
+
+  let batch: ReturnType<typeof planBatchAssignment> | null = null;
+  if (seesAllRecords(ctx.role)) {
+    if (!Array.isArray(shares) || shares.length === 0) {
+      throw new Error("Επιλέξτε σε ποιους πωλητές θα μοιραστούν τα leads");
+    }
+    const normalized = shares.map((share) => ({
+      userId: String(share.userId),
+      percent: Number(share.percent),
+    }));
+    const active = validateShares(
+      normalized,
+      await getActiveAgentIds(organizationId),
+      "Μοίρασμα εισαγωγής"
+    );
+    batch = planBatchAssignment(active);
+  }
 
   for (const [index, row] of rows.entries()) {
     try {
@@ -421,11 +449,14 @@ export async function importLeads(
         }
       }
 
+      const assignedUserId = batch?.pick();
       await createLead(organizationId, ctx, {
         ...row,
         sourceId,
+        ...(assignedUserId ? { assignedUserId } : {}),
         payload: { importRow: index + 1 },
       });
+      if (batch && assignedUserId) batch.commit(assignedUserId);
       results.created++;
     } catch (err) {
       results.errors.push(
@@ -434,5 +465,6 @@ export async function importLeads(
     }
   }
 
+  if (batch) results.assigned = batch.counts();
   return results;
 }

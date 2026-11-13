@@ -48,7 +48,7 @@ export const POST = withAuth(async (req, ctx) => {
     }
     if (body.action === "import") {
       return jsonOk(
-        await importLeads(ctx.organizationId, ctx, body.sourceId, body.rows)
+        await importLeads(ctx.organizationId, ctx, body.sourceId, body.rows, body.shares)
       );
     }
     const lead = await createLead(ctx.organizationId, ctx, body);

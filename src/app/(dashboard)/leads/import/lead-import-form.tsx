@@ -14,6 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  LeadImportShareStep,
+  activeShares,
+  initialShares,
+  sharesValid,
+  type ImportAgent,
+  type ImportShare,
+  type ShareState,
+} from "./lead-import-share-step";
 
 type Source = { id: string; name: string };
 type ImportField =
@@ -73,13 +82,27 @@ function cellValue(row: Record<string, unknown>, header: string) {
   return String(value).trim();
 }
 
-export default function LeadImportForm({ sources }: { sources: Source[] }) {
+export default function LeadImportForm({
+  sources,
+  canShare = false,
+  agents = [],
+  defaultShares = [],
+}: {
+  sources: Source[];
+  canShare?: boolean;
+  agents?: ImportAgent[];
+  defaultShares?: ImportShare[];
+}) {
   const router = useRouter();
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [mapping, setMapping] = useState<Partial<Record<ImportField, string>>>({});
+  const [shares, setShares] = useState<ShareState>(() =>
+    initialShares(agents, defaultShares)
+  );
   const [result, setResult] = useState<string>("");
+  const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -139,19 +162,38 @@ export default function LeadImportForm({ sources }: { sources: Source[] }) {
     const res = await fetch("/api/v1/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "import", sourceId, rows: mapped }),
+      body: JSON.stringify({
+        action: "import",
+        sourceId,
+        rows: mapped,
+        ...(canShare ? { shares: activeShares(shares) } : {}),
+      }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setFailed(true);
+      setResult(typeof data.error === "string" ? data.error : "Η εισαγωγή απέτυχε");
+      setLoading(false);
+      return;
+    }
     const errors = Array.isArray(data.errors) ? data.errors : [];
     const preview = errors.slice(0, 3).join(" · ");
+    const assigned = Object.entries((data.assigned ?? {}) as Record<string, number>)
+      .map(([userId, count]) => {
+        const agent = agents.find((item) => item.userId === userId);
+        return `${agent?.name ?? userId}: ${count}`;
+      })
+      .join(", ");
+    setFailed(false);
     setResult(
-      `Δημιουργήθηκαν: ${data.created ?? 0}, Παραλείφθηκαν: ${data.skipped ?? 0}, Σφάλματα: ${errors.length}${preview ? ` (${preview})` : ""}`
+      `Δημιουργήθηκαν: ${data.created ?? 0}, Παραλείφθηκαν: ${data.skipped ?? 0}, Σφάλματα: ${errors.length}${preview ? ` (${preview})` : ""}${assigned ? ` · Μοιράστηκαν: ${assigned}` : ""}`
     );
     setLoading(false);
     router.refresh();
   }
 
   const phoneMapped = Boolean(mapping.phone);
+  const sharingReady = !canShare || sharesValid(shares);
 
   return (
     <div>
@@ -225,10 +267,23 @@ export default function LeadImportForm({ sources }: { sources: Source[] }) {
               </div>
             </div>
           )}
-          {result && <p className="text-sm text-green-700">{result}</p>}
+          {canShare && headers.length > 0 && (
+            <LeadImportShareStep
+              agents={agents}
+              defaultShares={defaultShares}
+              rowCount={rows.length}
+              value={shares}
+              onChange={setShares}
+            />
+          )}
+          {result && (
+            <p className={failed ? "text-sm text-red-600" : "text-sm text-green-700"}>
+              {result}
+            </p>
+          )}
           <Button
             onClick={handleImport}
-            disabled={loading || rows.length === 0 || !phoneMapped}
+            disabled={loading || rows.length === 0 || !phoneMapped || !sharingReady}
           >
             {loading ? "Εισαγωγή..." : "Εισαγωγή"}
           </Button>

@@ -125,7 +125,7 @@ export async function getLeadDistribution(organizationId: string) {
   };
 }
 
-function validateShares(
+export function validateShares(
   shares: { userId: string; percent: number }[],
   agentIds: Set<string>,
   label: string
@@ -248,6 +248,33 @@ export async function saveLeadDistribution(
       });
     }
   });
+}
+
+export async function getActiveAgentIds(organizationId: string) {
+  const members = await getMemberProfiles(organizationId);
+  return new Set(
+    members
+      .filter((member) => member.role === "member" && !member.profile?.blocked)
+      .map((member) => member.userId)
+  );
+}
+
+// Splits a single batch (e.g. a file import) by the given percentages, counting
+// only the leads of this batch so earlier leads of the day do not skew it.
+export function planBatchAssignment(shares: { userId: string; percent: number }[]) {
+  const counts = new Map<string | null, number>(
+    shares.map((share) => [share.userId, 0])
+  );
+  return {
+    pick: () => selectByGap(shares, counts),
+    commit: (userId: string) => counts.set(userId, (counts.get(userId) ?? 0) + 1),
+    counts: () =>
+      Object.fromEntries(
+        [...counts.entries()].filter(
+          (entry): entry is [string, number] => entry[0] !== null && entry[1] > 0
+        )
+      ),
+  };
 }
 
 function selectByGap(
